@@ -1,0 +1,6 @@
+mindspore_gpu==1.8.1
+nibabel==4.0.2
+numpy==1.22.3
+opencv_python_headless==4.5.5.64
+PyYAML==6.0
+skimage==0.0

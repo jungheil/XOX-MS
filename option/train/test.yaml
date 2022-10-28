@@ -1,0 +1,75 @@
+name: test
+# seed: 666
+device: GPU
+
+datasets:
+  common:
+    num_parallel_workers: 1
+    size: 512
+    # mean: 120
+    # std: 0.2
+    slides: 7
+    resp: True
+    batch_size: 2
+    agm:
+      rot: False
+      crop: True
+      hflip: True
+      vflip: True
+      blur: True
+      noise: False
+
+  train:
+    name: KITS19
+    type: CTDS
+    path: datasets/kits19/train
+    img_re: "case_[0-9]*/ct.npy"
+    seg_re: "case_[0-9]*/seg.npy"
+    # range: 255/0
+    shuffle: True
+
+  val:
+    name: KITS19
+    type: CTDS
+    path: datasets/kits19/val
+    img_re: "case_[0-9]*/ct.npy"
+    seg_re: "case_[0-9]*/seg.npy"
+    agm: False
+    batch_size: 1
+    shuffle: False
+
+train:
+  type: SegTrain
+  class: 3
+  in_channels: 7
+  load_ckpt: weight/unet3plus.ckpt
+  max_epoch: 500
+
+  loss:
+    type: SegCrossEntropy
+
+  optim:
+    type: AdamW
+
+  scheduler:
+    type: None
+    lr: !!float 2e-4
+    milestones: [10000, 20000]
+    decay: 0.5
+    warmup: 10000
+
+  val:
+    SegDiceMetric:
+    SegIOUMetric:
+
+  max_iter: 20000
+
+model:
+  type: UNET3PLUS
+
+output:
+  print_freq: 100
+  save_ckpt_freq: 1
+  save_best_ckpt: True
+  eval_freq: 1
+  save_img: 5
