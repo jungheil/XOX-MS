@@ -18,9 +18,34 @@ import mindspore.nn as nn
 import mindspore.ops as ops
 import numpy as np
 from mindspore.common.tensor import Tensor
+from utils.common import init_weights
 from utils.registry import MODEL_REGISTRY
 
 
+
+class CA(nn.Cell):
+    def __init__(self, num_feat, reduction=16):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        r_feat = max(8, num_feat // reduction)
+        self.fc = nn.SequentialCell(
+            nn.Dense(num_feat, r_feat,weight_init="HeNormal",),
+            nn.LeakyReLU(alpha=0.2),
+            nn.Dense(r_feat, num_feat,weight_init="HeNormal",),
+        )
+        self.sigmoid = nn.Sigmoid()
+        
+    def construct(self, x):
+        s = ops.shape(x)
+        a = self.avg_pool(x).view(s[0], s[1])
+        #m = self.max_pool(x).view(s[0], s[1])
+        # y = (self.fc(a) + self.fc(m)).view(s[0], s[1], 1, 1)
+        y = self.fc(a).view(s[0], s[1], 1, 1)
+        # y = self.fc(a).view(b, c, 1, 1)
+        y = self.sigmoid(y) * 2
+        return x * y.expand_as(x)
+        
 class unetConv2(nn.Cell):
     '''unetConv2'''
 
@@ -57,7 +82,7 @@ class unetConv2(nn.Cell):
                             weight_init="HeNormal",
                         ),
                         nn.BatchNorm2d(out_size, gamma_init="ones"),
-                        nn.ReLU(),
+                        nn.LeakyReLU(alpha=0.2),
                     ]
                 )
                 in_size = out_size
@@ -74,7 +99,7 @@ class unetConv2(nn.Cell):
                             padding=p,
                             weight_init="HeNormal",
                         ),
-                        nn.ReLU(),
+                        nn.LeakyReLU(alpha=0.2),
                     ]
                 )
                 in_size = out_size
@@ -94,11 +119,11 @@ class UNet3Plus(nn.Cell):
         in_channels=7,
         n_classes=3,
         feature_scale=4,
-        is_deconv=True,
+        # is_deconv=True,
         is_batchnorm=True,
     ):
         super(UNet3Plus, self).__init__()
-        self.is_deconv = is_deconv
+        # self.is_deconv = is_deconv
         self.in_channels = in_channels
         self.is_batchnorm = is_batchnorm
         self.feature_scale = feature_scale
@@ -137,7 +162,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h1_PT_hd4_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h1_PT_hd4_relu = nn.ReLU()
+        self.h1_PT_hd4_relu = nn.LeakyReLU(alpha=0.2)
 
         # h2->160*160, hd4->40*40, Pooling 4 times
         self.h2_PT_hd4 = nn.MaxPool2d(4, 4)
@@ -150,7 +175,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h2_PT_hd4_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h2_PT_hd4_relu = nn.ReLU()
+        self.h2_PT_hd4_relu = nn.LeakyReLU(alpha=0.2)
 
         # h3->80*80, hd4->40*40, Pooling 2 times
         self.h3_PT_hd4 = nn.MaxPool2d(2, 2)
@@ -163,7 +188,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h3_PT_hd4_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h3_PT_hd4_relu = nn.ReLU()
+        self.h3_PT_hd4_relu = nn.LeakyReLU()
 
         # h4->40*40, hd4->40*40, Concatenation
         self.h4_Cat_hd4_conv = nn.Conv2d(
@@ -175,7 +200,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h4_Cat_hd4_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h4_Cat_hd4_relu = nn.ReLU()
+        self.h4_Cat_hd4_relu = nn.LeakyReLU()
 
         # hd5->20*20, hd4->40*40, Upsample 2 times
         self.ResizeBilinear = nn.ResizeBilinear()
@@ -188,7 +213,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd5_UT_hd4_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd5_UT_hd4_relu = nn.ReLU()
+        self.hd5_UT_hd4_relu = nn.LeakyReLU()
 
         # fusion(h1_PT_hd4, h2_PT_hd4, h3_PT_hd4, h4_Cat_hd4, hd5_UT_hd4)
         self.conv4d_1 = nn.Conv2d(
@@ -200,7 +225,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )  # 16
         self.bn4d_1 = nn.BatchNorm2d(self.UpChannels, gamma_init="ones")
-        self.relu4d_1 = nn.ReLU()
+        self.relu4d_1 = nn.LeakyReLU()
 
         '''stage 3d'''
         # h1->320*320, hd3->80*80, Pooling 4 times
@@ -214,7 +239,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h1_PT_hd3_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h1_PT_hd3_relu = nn.ReLU()
+        self.h1_PT_hd3_relu = nn.LeakyReLU()
 
         # h2->160*160, hd3->80*80, Pooling 2 times
         self.h2_PT_hd3 = nn.MaxPool2d(2, 2)
@@ -227,7 +252,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h2_PT_hd3_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h2_PT_hd3_relu = nn.ReLU()
+        self.h2_PT_hd3_relu = nn.LeakyReLU()
 
         # h3->80*80, hd3->80*80, Concatenation
         self.h3_Cat_hd3_conv = nn.Conv2d(
@@ -239,7 +264,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h3_Cat_hd3_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h3_Cat_hd3_relu = nn.ReLU()
+        self.h3_Cat_hd3_relu = nn.LeakyReLU()
 
         # hd4->40*40, hd4->80*80, Upsample 2 times
         self.hd4_UT_hd3_conv = nn.Conv2d(
@@ -251,7 +276,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd4_UT_hd3_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd4_UT_hd3_relu = nn.ReLU()
+        self.hd4_UT_hd3_relu = nn.LeakyReLU()
 
         # hd5->20*20, hd4->80*80, Upsample 4 times
         self.hd5_UT_hd3_conv = nn.Conv2d(
@@ -263,7 +288,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd5_UT_hd3_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd5_UT_hd3_relu = nn.ReLU()
+        self.hd5_UT_hd3_relu = nn.LeakyReLU()
 
         # fusion(h1_PT_hd3, h2_PT_hd3, h3_Cat_hd3, hd4_UT_hd3, hd5_UT_hd3)
         self.conv3d_1 = nn.Conv2d(
@@ -275,7 +300,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )  # 16
         self.bn3d_1 = nn.BatchNorm2d(self.UpChannels, gamma_init="ones")
-        self.relu3d_1 = nn.ReLU()
+        self.relu3d_1 = nn.LeakyReLU()
 
         '''stage 2d '''
         # h1->320*320, hd2->160*160, Pooling 2 times
@@ -289,7 +314,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h1_PT_hd2_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h1_PT_hd2_relu = nn.ReLU()
+        self.h1_PT_hd2_relu = nn.LeakyReLU()
 
         # h2->160*160, hd2->160*160, Concatenation
         self.h2_Cat_hd2_conv = nn.Conv2d(
@@ -301,7 +326,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h2_Cat_hd2_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h2_Cat_hd2_relu = nn.ReLU()
+        self.h2_Cat_hd2_relu = nn.LeakyReLU()
 
         # hd3->80*80, hd2->160*160, Upsample 2 times
         self.hd3_UT_hd2_conv = nn.Conv2d(
@@ -313,7 +338,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd3_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd3_UT_hd2_relu = nn.ReLU()
+        self.hd3_UT_hd2_relu = nn.LeakyReLU()
 
         # hd4->40*40, hd2->160*160, Upsample 4 times
         self.hd4_UT_hd2_conv = nn.Conv2d(
@@ -325,7 +350,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd4_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd4_UT_hd2_relu = nn.ReLU()
+        self.hd4_UT_hd2_relu = nn.LeakyReLU()
 
         # hd5->20*20, hd2->160*160, Upsample 8 times
         self.hd5_UT_hd2_conv = nn.Conv2d(
@@ -337,7 +362,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd5_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd5_UT_hd2_relu = nn.ReLU()
+        self.hd5_UT_hd2_relu = nn.LeakyReLU()
 
         # fusion(h1_PT_hd2, h2_Cat_hd2, hd3_UT_hd2, hd4_UT_hd2, hd5_UT_hd2)
         self.conv2d_1 = nn.Conv2d(
@@ -349,7 +374,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )  # 16
         self.bn2d_1 = nn.BatchNorm2d(self.UpChannels, gamma_init="ones")
-        self.relu2d_1 = nn.ReLU()
+        self.relu2d_1 = nn.LeakyReLU()
 
         '''stage 1d'''
         # h1->320*320, hd1->320*320, Concatenation
@@ -362,7 +387,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.h1_Cat_hd1_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.h1_Cat_hd1_relu = nn.ReLU()
+        self.h1_Cat_hd1_relu = nn.LeakyReLU()
 
         # hd2->160*160, hd1->320*320, Upsample 2 times
         self.hd2_UT_hd1_conv = nn.Conv2d(
@@ -374,7 +399,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd2_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd2_UT_hd1_relu = nn.ReLU()
+        self.hd2_UT_hd1_relu = nn.LeakyReLU()
 
         # hd3->80*80, hd1->320*320, Upsample 4 times
         self.hd3_UT_hd1_conv = nn.Conv2d(
@@ -386,7 +411,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd3_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd3_UT_hd1_relu = nn.ReLU()
+        self.hd3_UT_hd1_relu = nn.LeakyReLU()
 
         # hd4->40*40, hd1->320*320, Upsample 8 times
         self.hd4_UT_hd1_conv = nn.Conv2d(
@@ -398,7 +423,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd4_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd4_UT_hd1_relu = nn.ReLU()
+        self.hd4_UT_hd1_relu = nn.LeakyReLU()
 
         # hd5->20*20, hd1->320*320, Upsample 16 times
         self.hd5_UT_hd1_conv = nn.Conv2d(
@@ -410,7 +435,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )
         self.hd5_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels, gamma_init="ones")
-        self.hd5_UT_hd1_relu = nn.ReLU()
+        self.hd5_UT_hd1_relu = nn.LeakyReLU()
 
         # fusion(h1_Cat_hd1, hd2_UT_hd1, hd3_UT_hd1, hd4_UT_hd1, hd5_UT_hd1)
         self.conv1d_1 = nn.Conv2d(
@@ -422,7 +447,7 @@ class UNet3Plus(nn.Cell):
             weight_init="HeNormal",
         )  # 16
         self.bn1d_1 = nn.BatchNorm2d(self.UpChannels, gamma_init="ones")
-        self.relu1d_1 = nn.ReLU()
+        self.relu1d_1 = nn.LeakyReLU()
 
         # output
         self.outconv1 = nn.Conv2d(
@@ -433,9 +458,48 @@ class UNet3Plus(nn.Cell):
             padding=1,
             weight_init="HeNormal",
         )
+        self.outconv2 = nn.Conv2d(
+            self.UpChannels,
+            n_classes,
+            3,
+            pad_mode="pad",
+            padding=1,
+            weight_init="HeNormal",
+        )
+        self.outconv3 = nn.Conv2d(
+            self.UpChannels,
+            n_classes,
+            3,
+            pad_mode="pad",
+            padding=1,
+            weight_init="HeNormal",
+        )
+        self.outconv4 = nn.Conv2d(
+            self.UpChannels,
+            n_classes,
+            3,
+            pad_mode="pad",
+            padding=1,
+            weight_init="HeNormal",
+        )
+        
+        self.ca1 = CA(self.UpChannels)
+        self.ca2 = CA(self.UpChannels)
+        self.ca3 = CA(self.UpChannels)
+        self.ca4 = CA(self.UpChannels)
+        
         self.concat1 = ops.Concat(1)
+        
+        self.resize_bilinear = nn.ResizeBilinear()
+        
+        # self.cls = nn.SequentialCell(
+        #             nn.Dropout(),
+        #             nn.Conv2d(self.UpChannels, 2, 1),
+        #             nn.AdaptiveMaxPool2d(1),
+        #             nn.Sigmoid())
 
     def construct(self, inputs):
+        inputs = inputs-1
         '''construct'''
         ## -------------Encoder-------------
         h1 = self.conv1(inputs)  # h1->320*320*64
@@ -480,6 +544,7 @@ class UNet3Plus(nn.Cell):
                 )
             )
         )  # hd4->40*40*UpChannels
+        hd4 = self.ca4(hd4)
 
         h1_PT_hd3 = self.h1_PT_hd3_relu(
             self.h1_PT_hd3_bn(self.h1_PT_hd3_conv(self.h1_PT_hd3(h1)))
@@ -511,6 +576,7 @@ class UNet3Plus(nn.Cell):
                 )
             )
         )  # hd3->80*80*UpChannels
+        hd3 = self.ca3(hd3)
 
         h1_PT_hd2 = self.h1_PT_hd2_relu(
             self.h1_PT_hd2_bn(self.h1_PT_hd2_conv(self.h1_PT_hd2(h1)))
@@ -546,6 +612,7 @@ class UNet3Plus(nn.Cell):
                 )
             )
         )  # hd2->160*160*UpChannels
+        hd2 = self.ca2(hd2)
 
         h1_Cat_hd1 = self.h1_Cat_hd1_relu(self.h1_Cat_hd1_bn(self.h1_Cat_hd1_conv(h1)))
         hd2_UT_hd1 = self.hd2_UT_hd1_relu(
@@ -585,9 +652,14 @@ class UNet3Plus(nn.Cell):
                 )
             )
         )  # hd1->320*320*UpChannels
+        hd1 = self.ca1(hd1)
 
         d1 = self.outconv1(hd1)  # d1->320*320*n_classes
-        return d1
+        #XXX
+        d2 = self.resize_bilinear(self.outconv2(hd2),(512,512))
+        d3 = self.resize_bilinear(self.outconv2(hd3),(512,512))
+        d4 = self.resize_bilinear(self.outconv2(hd4),(512,512))
+        return [d1,d2,d3,d4]
 
 
 class BCEDiceLoss(nn.Cell):

@@ -12,5 +12,5 @@ filenames = [
 _import_modules = [importlib.import_module(f'train.{f}') for f in filenames]
 
 
-def get_trainer(opt, logger=None):
-    return TRAINER_REGISTRY.get(opt['train']['type'])(opt, logger)
+def get_trainer(opt, *args, **kwds):
+    return TRAINER_REGISTRY.get(opt['train']['type'])(opt,*args, **kwds)

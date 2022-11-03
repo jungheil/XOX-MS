@@ -10,7 +10,7 @@ datasets:
     # std: 0.2
     slides: 7
     resp: True
-    batch_size: 2
+    batch_size: 1
     agm:
       rot: False
       crop: True
@@ -25,6 +25,8 @@ datasets:
     path: datasets/kits19/train
     img_re: "case_[0-9]*/ct.npy"
     seg_re: "case_[0-9]*/seg.npy"
+    # img_re: "case_0000[0-9]/ct.npy"
+    # seg_re: "case_0000[0-9]/seg.npy"
     # range: 255/0
     shuffle: True
 
@@ -42,11 +44,12 @@ train:
   type: SegTrain
   class: 3
   in_channels: 7
-  load_ckpt: weight/unet3plus.ckpt
+  load_ckpt: weight/pre.ckpt
   max_epoch: 500
+  init_weights: none
 
   loss:
-    type: SegCrossEntropy
+    type: DSHybridLoss
 
   optim:
     type: AdamW
@@ -60,7 +63,7 @@ train:
 
   val:
     SegDiceMetric:
-    SegIOUMetric:
+    # SegIOUMetric:
 
   max_iter: 20000
 
@@ -72,4 +75,4 @@ output:
   save_ckpt_freq: 1
   save_best_ckpt: True
   eval_freq: 1
-  save_img: 5
+  save_img: 100

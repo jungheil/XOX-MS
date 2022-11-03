@@ -70,7 +70,7 @@ def init_work(opt):
 
     logger.info(msg)
 
-
+#TODO copy log file
 def auto_resume(opt):
     log = glob.glob(
         os.path.join(root_path, opt["output_dir"], "train", opt["name"] + "_*")
@@ -84,13 +84,14 @@ def auto_resume(opt):
             "train",
             last_dir,
             "ckpt",
-            opt["name"] + "_[0-9]*.ckpt",
+            opt["name"] + "_[0-9]*_[0-9]*.ckpt",
         )
     )
     assert len(ckpt), 'There is no ckpt to load.'
     ckpt_path = sorted(ckpt)[-1]
-    epoch = int(os.path.basename(ckpt_path).split("_")[-1][:-5])
-    return ckpt_path, epoch
+    epoch = int(os.path.basename(ckpt_path).split("_")[-2])
+    iter = int(os.path.basename(ckpt_path).split("_")[-1][:-5])
+    return ckpt_path, epoch, iter
 
 
 def train_pipeline(opt):
@@ -98,28 +99,32 @@ def train_pipeline(opt):
     logger = LM("root")
     train_ds = get_dataset(opt["datasets"]["train"], True)
     val_ds = get_dataset(opt["datasets"]["val"], True)
+    
+    ckpt,epoch,iter=None,0,0
+    if opt['auto_resume']:
+        try:
+            ckpt, epoch, iter = auto_resume(opt)
+        except Exception as e:
+            logger.warning(f'Auto resume failed! {repr(e)}')
 
-    train = get_trainer(opt, logger)
+    if ckpt:
+        train = get_trainer(opt, logger, resume_epoch=epoch, resume_iter=iter)
+        train.load_ckpt(ckpt)
+    else:
+        train = get_trainer(opt, logger)
+
     if opt["train"].get("load_ckpt"):
         train.load_ckpt(
             opt["train"].get("load_ckpt"),
-            filter_prefix=[
-                "network.conv1.conv.0",
-                "moment1.conv1.conv.0",
-                "moment2.conv1.conv.0",
-                "network.outconv1",
-                "moment1.outconv1",
-                "moment2.outconv1",
-            ],
+            # filter_prefix=[
+            #     "network.conv1.conv.0",
+            #     "moment1.conv1.conv.0",
+            #     "moment2.conv1.conv.0",
+            #     "network.outconv1",
+            #     "moment1.outconv1",
+            #     "moment2.outconv1",
+            # ],
         )
-    if opt['auto_resume']:
-        try:
-            ckpt, epoch = auto_resume(opt)
-        except Exception as e:
-            logger.warning(f'Auto resume failed! {repr(e)}')
-        else:
-            train.load_ckpt(ckpt)
-            train.resume(epoch)
 
     train.train(train_ds, val_ds)
 

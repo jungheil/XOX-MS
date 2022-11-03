@@ -57,3 +57,14 @@ class ConstantLR(LearningRateSchedule):
 
     def construct(self, global_step):
         return self.lr
+
+
+class PluginResumeLR(LearningRateSchedule):
+    def __init__(self, step, schedule):
+        super(PluginResumeLR, self).__init__()
+
+        self.step = float(step)
+        self.schedule = schedule
+
+    def construct(self, global_step):
+        return self.schedule(self.step + global_step)

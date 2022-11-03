@@ -1,8 +1,10 @@
+from cmath import log
+from inspect import Parameter
+from math import gamma
 import mindspore as ms
 from mindspore import nn
 from mindspore import ops as P
 from mindspore.common import dtype as mstype
-from mindspore.common.initializer import One
 from mindspore.nn import LossBase
 from utils.registry import LOSS_REGISTRY
 
@@ -38,7 +40,6 @@ class SegCrossEntropy(LossBase):
         c = logits.shape[1]
 
         labels = self.cast(labels, mstype.int32)
-        
 
         logits = self.softmax(logits)
         pred = self.argmax(logits)
@@ -66,26 +67,142 @@ class SegCrossEntropy(LossBase):
         return loss + dice
 
 
-@LOSS_REGISTRY
-class BCEDiceLoss(LossBase):
-    '''BCEDiceLoss'''
+# TODO mask
+class FocalLoss(LossBase):
+    def __init__(
+        self, gamma=2, label_smoothing=0.0, reduction='mean', mask=False
+    ) -> None:
+        super().__init__()
+        self.ce = nn.CrossEntropyLoss(reduction='none', label_smoothing=label_smoothing)
+        self.gamma = gamma
+        self.reduction = reduction
+        self.mask = mask
+        self.sum = P.ReduceSum()
+        self.mean = P.ReduceMean()
+        self.exp = P.Exp()
+        # self.ne = P.NotEqual()
 
-    def __init__(self):
-        super(BCEDiceLoss, self).__init__()
-        self.bceloss = ops.BinaryCrossEntropy()
-        self.sigmoid = ops.Sigmoid()
-        self.reduceSum = ops.ReduceSum(keep_dims=False)
+    def construct(self, logits, labels):
+        # if self.mask:
+        #     mask = self.ne(logits, labels)
+        #     logits = P.masked_fill(logits,mask,0)
+        #     labels = P.masked_fill(labels,mask,0)
+        loss = self.ce(logits, labels)
+        pt = self.exp(-loss)
+        weight = (1 - pt) ** self.gamma
+        loss = weight * loss
 
-    def construct(self, predict, target):
-        '''construct'''
-        bce = self.bceloss(predict, target)
-        smooth = 1e-5
-        num = target.shape[0]
-        predict = predict.view(num, -1)
-        target = target.view(num, -1)
-        intersection = predict * target
-        dice = (2.0 * self.reduceSum(intersection, 1) + smooth) / (
-            self.reduceSum(predict, 1) + self.reduceSum(target, 1) + smooth
+        if self.reduction == 'none':
+            pass
+        elif self.reduction == 'sum':
+            loss = self.sum(loss)
+        elif self.reduction == 'mean':
+            loss = self.mean(loss)
+        else:
+            raise NotImplementedError
+        return loss
+
+
+class DiceLoss(LossBase):
+    def __init__(self, smooth=1e-5):
+        super().__init__()
+        self.smooth = 1e-5
+        self.sum = P.ReduceSum()
+        self.transpose = P.Transpose()
+
+    def construct(self, logits, labels):
+        c = logits.shape[1]
+        logits = self.transpose(logits, (0, 2, 3, 1)).view((-1, c))
+        labels = self.transpose(labels, (0, 2, 3, 1)).view((-1, c))
+        intersection = logits * labels
+        dice = (2.0 * self.sum(intersection) + self.smooth) / (
+            self.sum(logits) + self.sum(labels) + self.smooth
         )
-        dice = 1 - dice / num
-        return 0.5 * bce + dice
+        dice = 1 - dice
+        return dice
+
+
+class MSSSIMLoss(LossBase):
+    def __init__(self):
+        super().__init__()
+        self.msssim = nn.MSSSIM(max_val=1.0, k1=0.01**2, k2=0.03**2)
+        # self.msssim.set_grad(False)
+        self.mean = P.ReduceMean()
+
+    def construct(self, logits, labels):
+        loss = self.msssim(logits, labels)
+        loss = 1 - self.mean(loss)
+        return loss
+
+
+@LOSS_REGISTRY
+class SegHybridLoss(LossBase):
+    def __init__(self):
+        super().__init__()
+        self.fl = FocalLoss(reduction='mean')
+        self.ssim = MSSSIMLoss()
+        self.dice = DiceLoss()
+
+        self.softmax = P.Softmax(axis=1)
+        self.sigmoid = P.Sigmoid()
+
+        self.one_hot = P.OneHot(axis=1)
+        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+            0.0, mstype.float32
+        )
+
+    def construct(self, logits, labels):
+        c = logits.shape[1]
+        if c == 1:
+            logits = self.sigmoid(logits)
+        else:
+            logits = self.softmax(logits)
+            labels = self.cast(labels, mstype.int32)
+            labels = self.one_hot(labels, c, self.on_value, self.off_value)
+
+        return (
+            self.fl(logits, labels)
+            + self.ssim(logits, labels)
+            + self.dice(logits, labels)
+        )
+        
+        
+@LOSS_REGISTRY
+class DSHybridLoss(LossBase):
+    def __init__(self):
+        super().__init__()
+        self.fl = FocalLoss(reduction='mean')
+        # self.fl = nn.FocalLoss()
+        self.ssim = MSSSIMLoss()
+        # self.dice = DiceLoss()
+        self.dice = nn.MultiClassDiceLoss(ignore_indiex=0, activation=None)
+
+        self.softmax = P.Softmax(axis=1)
+        self.sigmoid = P.Sigmoid()
+
+        self.one_hot = P.OneHot(axis=1)
+        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+            0.0, mstype.float32
+        )
+        
+    def construct(self, logits, labels):
+        loss = ms.Tensor(0,ms.float32)
+        
+        # l = len(logits)
+        # c = logits[0].shape[1]
+        
+        labels = self.cast(labels, mstype.int32)
+        labels = self.one_hot(labels, 3, self.on_value, self.off_value)
+        
+        weight = [0.4,0.3,0.2,0.1]
+        
+        for i in range(4):
+            out = logits[i]
+
+            out = self.softmax(out)
+
+            loss += (
+                self.fl(out, labels) +  self.dice(out, labels)
+                + self.ssim(out, labels)
+            )*weight[i]
+        return loss

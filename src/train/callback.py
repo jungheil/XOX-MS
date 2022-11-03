@@ -17,6 +17,7 @@ class StepLossTimeMonitor(Callback):
         self.pp_fun = pp_fun
         self.save_max_ckpt = save_max_ckpt
         self.save_ckpt_metric = -float("inf") if save_max_ckpt else float("inf")
+        self.best_epoch = 0
 
     def on_train_step_begin(self, run_context):
         if not self.step_time:
@@ -80,7 +81,7 @@ class StepLossTimeMonitor(Callback):
                     os.path.join(
                         self.logger.log_file_path,
                         "ckpt",
-                        f'{self.opt["name"]}_{cb_params.cur_epoch_num}.ckpt',
+                        f'{self.opt["name"]}_{cb_params.cur_epoch_num}_{cb_params.cur_epoch_num*cb_params.batch_num}.ckpt',
                     ),
                 )
 
@@ -96,7 +97,6 @@ class StepLossTimeMonitor(Callback):
         cb_params = run_context.original_args()
         if (
             self.opt['eval_freq']
-            and cb_params.cur_epoch_num % self.opt['eval_freq'] == 0
         ):
             self.save_img_id = 0
             os.makedirs(
@@ -109,7 +109,6 @@ class StepLossTimeMonitor(Callback):
         cb_params = run_context.original_args()
         if (
             self.opt['eval_freq']
-            and cb_params.cur_epoch_num % self.opt['eval_freq'] == 0
         ):
             if self.opt["save_img"] and self.save_img_id < self.opt["save_img"]:
                 assert self.pp_fun
@@ -130,20 +129,20 @@ class StepLossTimeMonitor(Callback):
         cb_params = run_context.original_args()
         if (
             self.opt['eval_freq']
-            and cb_params.cur_epoch_num % self.opt['eval_freq'] == 0
         ):
             output = f"[epoch {cb_params.cur_epoch_num}] [val] "
             for m in cb_params.metrics:
                 output += "{}: {}, ".format(m, cb_params.metrics[m])
-            self.logger.info(output[:-2])
             m = list(cb_params.metrics.keys())[0]
-            if self.opt.get("save_best_ckpt"):
-                if (
-                    self.save_ckpt_metric < cb_params.metrics[m]
-                    if self.save_max_ckpt
-                    else self.save_ckpt_metric > cb_params.metrics[m]
-                ):
-                    self.save_ckpt_metric = cb_params.metrics[m]
+            if (
+                self.save_ckpt_metric < cb_params.metrics[m]
+                if self.save_max_ckpt
+                else self.save_ckpt_metric > cb_params.metrics[m]
+            ):
+                self.best_epoch = cb_params.cur_epoch_num
+                self.save_ckpt_metric = cb_params.metrics[m]
+                if self.opt.get("save_best_ckpt"):
+
                     save_checkpoint(
                         cb_params.train_network,
                         os.path.join(
@@ -155,3 +154,7 @@ class StepLossTimeMonitor(Callback):
                     self.logger.info(
                         f"[epoch {cb_params.cur_epoch_num}] [val] save the best ckpt."
                     )
+            
+            output += f'best epoch: {self.best_epoch}'
+            self.logger.info(output)
+

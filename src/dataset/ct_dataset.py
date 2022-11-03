@@ -68,7 +68,7 @@ class CTDS:
 
         i = self.slides_idx[self.si]
         img = np.float32(self.cache_img[:, :, i : i + self.slides])
-        seg = np.float32(self.cache_img[:, :, i + self.slides // 2])
+        seg = np.float32(self.cache_seg[:, :, i + self.slides // 2])
         self.si += 1
         return img, seg
 

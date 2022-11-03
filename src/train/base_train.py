@@ -3,7 +3,7 @@ from metric import get_metric
 from mindspore import load_checkpoint, load_param_into_net, nn
 from model import get_model
 from utils.logger import LM
-
+from utils.common import init_weights
 from train.callback import StepLossTimeMonitor
 from train.schedule import *
 
@@ -11,13 +11,15 @@ from train.schedule import *
 class BaseTrain:
     """Base model."""
 
-    def __init__(self, opt, logger):
+    def __init__(self, opt, logger, resume_epoch=0, resume_iter=0):
         self.opt = opt
         self.is_train = opt["phase"] == "train"
         self.max_epoch = opt["train"]["max_epoch"]
         self.logger = logger
-        self.resume_epoch = 0
+        self.resume_epoch = resume_epoch
+        self.resume_iter = resume_iter
         self.net = get_model(opt["model"])
+        init_weights(self.net, opt['train']['init_weights'])
         self.train_model = None
         self.train_cb = None
 
@@ -57,6 +59,7 @@ class BaseTrain:
             dataset_sink_mode=False,
             valid_dataset_sink_mode=False,
             initial_epoch=self.resume_epoch,
+            valid_frequency=self.opt['output']['eval_freq']
         )
 
     def get_optimizer(self, type, params, lr, **kwds):
@@ -90,7 +93,7 @@ class BaseTrain:
         warmup_step = kwds.get("warmup")
         if warmup_step:
             schedule = PluginWarmUpLR(warmup_step, schedule)
-        return schedule
+        return PluginResumeLR(self.resume_iter, schedule)
 
     def load_ckpt(self, path, **kwds):
         load_param_into_net(self.net, load_checkpoint(path, **kwds))
@@ -98,5 +101,3 @@ class BaseTrain:
     def post_process(self, img):
         return img
 
-    def resume(self, epoch):
-        self.resume_epoch = epoch
