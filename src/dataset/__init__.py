@@ -5,8 +5,10 @@ import random
 import mindspore.dataset as de
 import mindspore.dataset.vision as vs
 from utils.registry import DATASET_REGISTRY
+from mindspore.dataset.vision import Inter
 
-from dataset.argument import RandomNoise
+
+from dataset.argument import RandomNoise,RandomRot
 
 __all__ = ['get_dataset']
 
@@ -32,9 +34,11 @@ def get_dataset(opt, is_train=True):
         trans = []
         agms = []
         if opt['agm']:
+            if opt['agm'].get('rot90'):
+                trans.append(RandomRot(prob=0.5))
             # TODO Random Rotation
-            # if opt['agm'].get('rot'):
-            #     trans.append(vs.RandomRotation(5))
+            if opt['agm'].get('rot'):
+                trans.append(vs.RandomRotation(degrees=5.0,resample=Inter.BICUBIC))
             if opt['agm'].get('crop'):
                 trans.append(
                     vs.RandomResizedCrop(
@@ -46,7 +50,7 @@ def get_dataset(opt, is_train=True):
             if opt['agm'].get('hflip'):
                 trans.append(vs.RandomHorizontalFlip(prob=0.5))
             if opt['agm'].get('vflip'):
-                trans.append(vs.RandomVerticalFlip(prob=0.5))
+                trans.append(vs.RandomVerticalFlip(prob=0.25))
             if opt['agm'].get('color'):
                 agms.append(
                     vs.RandomColorAdjust(
@@ -56,24 +60,25 @@ def get_dataset(opt, is_train=True):
             if opt['agm'].get('blur'):
                 agms.append(
                     vs.GaussianBlur(
-                        (1, 1) if random.random() < 0.75 else (5, 5), random.random()
+                        (1, 1) if random.random() < 0.9 else (3, 3), random.random()
                     )
                 )
             if opt['agm'].get('noise'):
                 agms.append(RandomNoise())
-            trans = de.transforms.Compose(trans)
-            agms = de.transforms.Compose(agms)
+            # TODO DATA ARGUMENTATION
+            # trans = de.transforms.Compose(trans)
+            # agms = de.transforms.Compose(agms)
 
-            ds = ds.map(
-                operations=trans,
-                input_columns=['img', 'seg'],
-                num_parallel_workers=opt['num_parallel_workers'],
-            )
-            ds = ds.map(
-                operations=agms,
-                input_columns=['img'],
-                num_parallel_workers=opt['num_parallel_workers'],
-            )
+            # ds = ds.map(
+            #     operations=trans,
+            #     input_columns=['img', 'seg'],
+            #     num_parallel_workers=opt['num_parallel_workers'],
+            # )
+            # ds = ds.map(
+            #     operations=agms,
+            #     input_columns=['img'],
+            #     num_parallel_workers=opt['num_parallel_workers'],
+            # )
         # ds = ds.map(operations=vs.Normalize(mean=opt['mean'], std=opt['std']), input_columns=['img'], num_parallel_workers=opt['num_parallel_workers'])
         ds = ds.map(
             operations=[vs.HWC2CHW()],

@@ -6,6 +6,7 @@ from utils.logger import LM
 from utils.common import init_weights
 from train.callback import StepLossTimeMonitor
 from train.schedule import *
+import copy
 
 
 class BaseTrain:
@@ -28,7 +29,9 @@ class BaseTrain:
         if val:
             for m in val:
                 val[m] = val[m] if val[m] else {}
-                self.metric[m] = get_metric(m, **val[m])
+                p = copy.copy(val[m])
+                t = p.pop('type')
+                self.metric[m] = get_metric(t, **p)
 
     def create_cb(self):
         self.train_cb = [

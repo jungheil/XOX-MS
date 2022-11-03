@@ -22,32 +22,32 @@ class SegTrain(BaseTrain):
         scheduler_opt = deepcopy(opt["train"]["scheduler"])
         scheduler_type = scheduler_opt.pop("type")
         self.scheduler = self.get_schedule(scheduler_type, **scheduler_opt)
-        # train_param = [
-        #     'outconv1.weight',
-        #     'outconv2.weight',
-        #     'outconv3.weight',
-        #     'outconv4.weight' ,
-        #     'conv1.conv.0.weight',
-        #     'ca1.fc.0.weight',
-        #     'ca1.fc.0.bias',
-        #     'ca1.fc.2.weight',
-        #     'ca1.fc.2.bias',
-        #     'ca2.fc.0.weight',
-        #     'ca2.fc.0.bias',
-        #     'ca2.fc.2.weight',
-        #     'ca2.fc.2.bias',
-        #     'ca3.fc.0.weight',
-        #     'ca3.fc.0.bias',
-        #     'ca3.fc.2.weight',
-        #     'ca3.fc.2.bias',
-        #     'ca4.fc.0.weight',
-        #     'ca4.fc.0.bias',
-        #     'ca4.fc.2.weight',
-        #     'ca4.fc.2.bias',
-        # ]
-        # for param in self.net.trainable_params():
-        #     if param.name not in train_param:
-        #         param.requires_grad = False
+        train_param = [
+            'outconv1.weight',
+            'outconv2.weight',
+            'outconv3.weight',
+            'outconv4.weight' ,
+            # 'conv1.conv.0.weight',
+            'ca1.fc.0.weight',
+            'ca1.fc.0.bias',
+            'ca1.fc.2.weight',
+            'ca1.fc.2.bias',
+            'ca2.fc.0.weight',
+            'ca2.fc.0.bias',
+            'ca2.fc.2.weight',
+            'ca2.fc.2.bias',
+            'ca3.fc.0.weight',
+            'ca3.fc.0.bias',
+            'ca3.fc.2.weight',
+            'ca3.fc.2.bias',
+            'ca4.fc.0.weight',
+            'ca4.fc.0.bias',
+            'ca4.fc.2.weight',
+            'ca4.fc.2.bias',
+        ]
+        for param in self.net.trainable_params():
+            if param.name not in train_param:
+                param.requires_grad = False
         self.optim = self.get_optimizer(
             opt["train"]["optim"]["type"],
             self.net.trainable_params(),

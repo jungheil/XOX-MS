@@ -8,9 +8,9 @@ datasets:
     size: 512
     # mean: 120
     # std: 0.2
-    slides: 7
+    slides: 3
     resp: True
-    batch_size: 1
+    batch_size: 2
     agm:
       rot: False
       crop: True
@@ -18,6 +18,7 @@ datasets:
       vflip: True
       blur: True
       noise: False
+      rot90: False
 
   train:
     name: KITS19
@@ -43,8 +44,8 @@ datasets:
 train:
   type: SegTrain
   class: 3
-  in_channels: 7
-  load_ckpt: weight/pre.ckpt
+  in_channels: 3
+  load_ckpt: weight/unet3plus.ckpt
   max_epoch: 500
   init_weights: none
 
@@ -62,7 +63,12 @@ train:
     warmup: 10000
 
   val:
-    SegDiceMetric:
+    SZ_DICE:
+      type: DiceMetric
+      ignore_indiex: 0
+    ZL_DICE:
+      type: DiceMetric
+      one_channel: 2
     # SegIOUMetric:
 
   max_iter: 20000

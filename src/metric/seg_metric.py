@@ -7,27 +7,33 @@ from utils.registry import METRIC_REGISTRY
 
 
 @METRIC_REGISTRY
-class SegDiceMetric(nn.Metric):
+class DiceMetric(nn.Metric):
     """DiceMetric"""
 
     def __init__(
-        self,smooth=1e-5
+        self,
+        ignore_indiex=None,
+        one_channel=None
     ):
-        super(SegDiceMetric, self).__init__()
+        super(DiceMetric, self).__init__()
         self.dice_sum = 0.0
         self.count = 0.0
         self.clear()
-        self.sigmoid = P.Sigmoid()
-        self.reducesum = P.ReduceSum()
-        self.smooth = smooth
         self.argmax = P.Argmax(axis=1)
         self.one_hot = P.OneHot(axis=1)
         self.cast = P.Cast()
         self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
             0.0, mstype.float32
         )
-        self.dice = nn.Dice
-
+        if one_channel:
+            self.dice = nn.MultiClassDiceLoss(activation=None)
+        else:
+            self.dice = nn.MultiClassDiceLoss(ignore_indiex=ignore_indiex, activation=None)
+        self.dice.set_grad(False)
+        self.dice.set_train(False)
+        
+        self.oc = one_channel
+        
     def clear(self):
         """Resets the internal evaluation result to initial state."""
         self.dice_sum = 0.0
@@ -43,26 +49,21 @@ class SegDiceMetric(nn.Metric):
         preds : 'NumpyArray' or list of `NumpyArray`
             Predicted values.
         """
+        output = output[0]
         
-        output=output[0]
-
-        # c = output.shape[1]
-
-        if 3 == 1:
-            output = self.sigmoid(output)
+        target = self.cast(target, mstype.int32)
+        target = self.one_hot(target, 3, self.on_value, self.off_value)
+        
+        output = self.argmax(output)
+        output = self.one_hot(output, 3, self.on_value, self.off_value)
+        
+        if self.oc:
+            output = output[:,self.oc:self.oc+1]
+            target = target[:,self.oc:self.oc+1]
+            dice = 1-self.dice(output, target)
         else:
-            output = self.argmax(output)
-            output = self.one_hot(output, 3, self.on_value, self.off_value)
-            
+            dice = 1-self.dice(output, target)
 
-            target = self.cast(target, mstype.int32)
-            target = self.one_hot(target, 3, self.on_value, self.off_value)
-            
-        intersection = self.reducesum(output * target)
-        # TODO 分母少了平方
-        dice = (2.0 * intersection + self.smooth) / (
-            self.reducesum(output) + self.reducesum(target) + self.smooth
-        )
         self.dice_sum += dice * output.shape[0]
 
         self.count += output.shape[0]

@@ -35,3 +35,13 @@ class RandomNoise:
         else:
             raise
         return Image.fromarray(np.uint8(img * 255))
+
+class RandomRot:
+    def __init__(self, prob=0.5) -> None:
+        self.prob=prob
+    def __call__(self, *img):
+        k = random.randint(1,3)
+        if random.random()>self.prob:
+            return img
+        img = np.rot90(img, k)
+        return img

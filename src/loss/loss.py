@@ -70,7 +70,7 @@ class SegCrossEntropy(LossBase):
 # TODO mask
 class FocalLoss(LossBase):
     def __init__(
-        self, gamma=2, label_smoothing=0.0, reduction='mean', mask=False
+        self, gamma=2, label_smoothing=0.0, reduction='mean', mask=True
     ) -> None:
         super().__init__()
         self.ce = nn.CrossEntropyLoss(reduction='none', label_smoothing=label_smoothing)
@@ -80,13 +80,15 @@ class FocalLoss(LossBase):
         self.sum = P.ReduceSum()
         self.mean = P.ReduceMean()
         self.exp = P.Exp()
-        # self.ne = P.NotEqual()
+        self.cast = P.Cast()
+        self.ne = P.NotEqual()
 
     def construct(self, logits, labels):
         # if self.mask:
-        #     mask = self.ne(logits, labels)
-        #     logits = P.masked_fill(logits,mask,0)
-        #     labels = P.masked_fill(labels,mask,0)
+        mask = labels[:,1:,...].sum(axis=1)
+        mask = self.ne(mask, 0)
+        mask = self.cast(mask, mstype.float32)
+        
         loss = self.ce(logits, labels)
         pt = self.exp(-loss)
         weight = (1 - pt) ** self.gamma
@@ -95,9 +97,15 @@ class FocalLoss(LossBase):
         if self.reduction == 'none':
             pass
         elif self.reduction == 'sum':
-            loss = self.sum(loss)
+            if self.mask:
+                loss = self.sum(loss*mask)
+            else:
+                loss = self.sum(loss)
         elif self.reduction == 'mean':
-            loss = self.mean(loss)
+            if self.mask:
+                loss = self.sum(loss*mask) / self.sum(mask)
+            else:
+                loss = self.mean(loss)
         else:
             raise NotImplementedError
         return loss
@@ -123,14 +131,18 @@ class DiceLoss(LossBase):
 
 
 class MSSSIMLoss(LossBase):
-    def __init__(self):
+    def __init__(self,ignore_indiex=0):
         super().__init__()
         self.msssim = nn.MSSSIM(max_val=1.0, k1=0.01**2, k2=0.03**2)
         # self.msssim.set_grad(False)
         self.mean = P.ReduceMean()
+        # self.ignore_indiex = ignore_indiex
 
     def construct(self, logits, labels):
+        logits = logits[:,1:,...]
+        labels = labels[:,1:,...]
         loss = self.msssim(logits, labels)
+        # loss = self.msssim(logits, labels)
         loss = 1 - self.mean(loss)
         return loss
 

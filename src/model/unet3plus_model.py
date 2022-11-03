@@ -22,28 +22,27 @@ from utils.common import init_weights
 from utils.registry import MODEL_REGISTRY
 
 
-
 class CA(nn.Cell):
     def __init__(self, num_feat, reduction=16):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        # self.max_pool = nn.AdaptiveMaxPool2d(1)
         r_feat = max(8, num_feat // reduction)
         self.fc = nn.SequentialCell(
-            nn.Dense(num_feat, r_feat,weight_init="HeNormal",),
+            nn.Conv2d(num_feat, r_feat,1,weight_init="HeNormal", has_bias=False),
             nn.LeakyReLU(alpha=0.2),
-            nn.Dense(r_feat, num_feat,weight_init="HeNormal",),
+            nn.Conv2d(r_feat, num_feat,1,weight_init="HeNormal", has_bias=False),
         )
-        self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.HSigmoid()
         
     def construct(self, x):
-        s = ops.shape(x)
-        a = self.avg_pool(x).view(s[0], s[1])
+        # s = P.shape(x)
+        # a = self.avg_pool(x).view(s[0], s[1])
         #m = self.max_pool(x).view(s[0], s[1])
         # y = (self.fc(a) + self.fc(m)).view(s[0], s[1], 1, 1)
-        y = self.fc(a).view(s[0], s[1], 1, 1)
+        y = self.fc(x)
         # y = self.fc(a).view(b, c, 1, 1)
-        y = self.sigmoid(y) * 2
+        y = self.sigmoid(y)
         return x * y.expand_as(x)
         
 class unetConv2(nn.Cell):
@@ -116,7 +115,7 @@ class UNet3Plus(nn.Cell):
 
     def __init__(
         self,
-        in_channels=7,
+        in_channels=3,
         n_classes=3,
         feature_scale=4,
         # is_deconv=True,
@@ -499,7 +498,8 @@ class UNet3Plus(nn.Cell):
         #             nn.Sigmoid())
 
     def construct(self, inputs):
-        inputs = inputs-1
+        b,c,w,h = ops.shape(inputs)
+        inputs = inputs - inputs.std(axis=(2,3)).view(b,c,1,1)
         '''construct'''
         ## -------------Encoder-------------
         h1 = self.conv1(inputs)  # h1->320*320*64
@@ -657,8 +657,8 @@ class UNet3Plus(nn.Cell):
         d1 = self.outconv1(hd1)  # d1->320*320*n_classes
         #XXX
         d2 = self.resize_bilinear(self.outconv2(hd2),(512,512))
-        d3 = self.resize_bilinear(self.outconv2(hd3),(512,512))
-        d4 = self.resize_bilinear(self.outconv2(hd4),(512,512))
+        d3 = self.resize_bilinear(self.outconv3(hd3),(512,512))
+        d4 = self.resize_bilinear(self.outconv4(hd4),(512,512))
         return [d1,d2,d3,d4]
 
 
