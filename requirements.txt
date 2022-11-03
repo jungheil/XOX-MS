@@ -4,3 +4,5 @@ numpy==1.22.3
 opencv_python_headless==4.5.5.64
 PyYAML==6.0
 skimage==0.0
+
+# matplotlib zmq scikit-image pyyaml nibabel imageio requests tqdm opencv-python aim argparse typing mindvision 

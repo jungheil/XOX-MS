@@ -1,12 +1,14 @@
+import copy
+
 from loss import get_loss
 from metric import get_metric
 from mindspore import load_checkpoint, load_param_into_net, nn
 from model import get_model
-from utils.logger import LM
 from utils.common import init_weights
+from utils.logger import LM
+
 from train.callback import StepLossTimeMonitor
 from train.schedule import *
-import copy
 
 
 class BaseTrain:
@@ -62,7 +64,7 @@ class BaseTrain:
             dataset_sink_mode=False,
             valid_dataset_sink_mode=False,
             initial_epoch=self.resume_epoch,
-            valid_frequency=self.opt['output']['eval_freq']
+            valid_frequency=self.opt['output']['eval_freq'],
         )
 
     def get_optimizer(self, type, params, lr, **kwds):
@@ -103,4 +105,3 @@ class BaseTrain:
 
     def post_process(self, img):
         return img
-

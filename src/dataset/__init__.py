@@ -4,11 +4,11 @@ import random
 
 import mindspore.dataset as de
 import mindspore.dataset.vision as vs
-from utils.registry import DATASET_REGISTRY
 from mindspore.dataset.vision import Inter
+from utils.registry import DATASET_REGISTRY
 
-
-from dataset.argument import RandomNoise,RandomRot
+from dataset.argument import (Affine, RandomCustom, RandomNoise, RescaleCrop,
+                              Rot90)
 
 __all__ = ['get_dataset']
 
@@ -35,28 +35,41 @@ def get_dataset(opt, is_train=True):
         agms = []
         if opt['agm']:
             if opt['agm'].get('rot90'):
-                trans.append(RandomRot(prob=0.5))
-            # TODO Random Rotation
-            if opt['agm'].get('rot'):
-                trans.append(vs.RandomRotation(degrees=5.0,resample=Inter.BICUBIC))
+                trans.append(
+                    RandomCustom(Rot90, process_prob=0.5, rand_params={'k': (1, 3)})
+                )
+            # if opt['agm'].get('rot'):
+            #     trans.append(RandomCustom(vs.Rotate,rand_params={'degrees':(-5.,5.)},resample=Inter.BICUBIC))
+            if opt['agm'].get('affine'):
+                trans.append(
+                    RandomCustom(
+                        Affine,
+                        rand_params={
+                            'degrees': (-5.0, 5.0),
+                            'shift_x': (0.9, 1.0),
+                            'shift_y': (0.9, 1.0),
+                            'shear_x': (0,20),
+                            'shear_y': (0,20),
+                        },
+                    )
+                )
             if opt['agm'].get('crop'):
                 trans.append(
-                    vs.RandomResizedCrop(
-                        opt['size'], scale=(0.9, 1.0), ratio=(0.75, 1.333)
+                    RandomCustom(
+                        RescaleCrop,
+                        size=opt['size'],
+                        rand_params={'scale': (0.8, 1.2), 'ratio': (0.75, 1.333)},
+                        interpolation=Inter.BICUBIC,
                     )
                 )
             else:
                 trans.append(vs.Resize([opt['size'], opt['size']]))
             if opt['agm'].get('hflip'):
-                trans.append(vs.RandomHorizontalFlip(prob=0.5))
+                trans.append(RandomCustom(vs.HorizontalFlip, process_prob=0.5))
             if opt['agm'].get('vflip'):
-                trans.append(vs.RandomVerticalFlip(prob=0.25))
+                trans.append(RandomCustom(vs.VerticalFlip, process_prob=0.5))
             if opt['agm'].get('color'):
-                agms.append(
-                    vs.RandomColorAdjust(
-                        (0.8, 1.2), (0.6, 1.4), (0.5, 1.5), (-0.05, 0.05)
-                    )
-                )
+                agms.append(vs.RandomColorAdjust((0.85, 1.15), (0.85, 1.15)))
             if opt['agm'].get('blur'):
                 agms.append(
                     vs.GaussianBlur(
@@ -66,19 +79,19 @@ def get_dataset(opt, is_train=True):
             if opt['agm'].get('noise'):
                 agms.append(RandomNoise())
             # TODO DATA ARGUMENTATION
-            # trans = de.transforms.Compose(trans)
-            # agms = de.transforms.Compose(agms)
+            trans = de.transforms.Compose(trans)
+            agms = de.transforms.Compose(agms)
 
-            # ds = ds.map(
-            #     operations=trans,
-            #     input_columns=['img', 'seg'],
-            #     num_parallel_workers=opt['num_parallel_workers'],
-            # )
-            # ds = ds.map(
-            #     operations=agms,
-            #     input_columns=['img'],
-            #     num_parallel_workers=opt['num_parallel_workers'],
-            # )
+            ds = ds.map(
+                operations=trans,
+                input_columns=['img', 'seg'],
+                num_parallel_workers=opt['num_parallel_workers'],
+            )
+            ds = ds.map(
+                operations=agms,
+                input_columns=['img'],
+                num_parallel_workers=opt['num_parallel_workers'],
+            )
         # ds = ds.map(operations=vs.Normalize(mean=opt['mean'], std=opt['std']), input_columns=['img'], num_parallel_workers=opt['num_parallel_workers'])
         ds = ds.map(
             operations=[vs.HWC2CHW()],

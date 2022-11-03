@@ -95,9 +95,7 @@ class StepLossTimeMonitor(Callback):
 
     def on_eval_begin(self, run_context):
         cb_params = run_context.original_args()
-        if (
-            self.opt['eval_freq']
-        ):
+        if self.opt['eval_freq']:
             self.save_img_id = 0
             os.makedirs(
                 os.path.join(
@@ -107,9 +105,7 @@ class StepLossTimeMonitor(Callback):
 
     def on_eval_step_end(self, run_context):
         cb_params = run_context.original_args()
-        if (
-            self.opt['eval_freq']
-        ):
+        if self.opt['eval_freq']:
             if self.opt["save_img"] and self.save_img_id < self.opt["save_img"]:
                 assert self.pp_fun
                 out = cb_params.net_outputs[1]
@@ -127,9 +123,7 @@ class StepLossTimeMonitor(Callback):
 
     def on_eval_end(self, run_context):
         cb_params = run_context.original_args()
-        if (
-            self.opt['eval_freq']
-        ):
+        if self.opt['eval_freq']:
             output = f"[epoch {cb_params.cur_epoch_num}] [val] "
             for m in cb_params.metrics:
                 output += "{}: {}, ".format(m, cb_params.metrics[m])
@@ -154,7 +148,6 @@ class StepLossTimeMonitor(Callback):
                     self.logger.info(
                         f"[epoch {cb_params.cur_epoch_num}] [val] save the best ckpt."
                     )
-            
+
             output += f'best epoch: {self.best_epoch}'
             self.logger.info(output)
-

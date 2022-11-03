@@ -12,13 +12,14 @@ datasets:
     resp: True
     batch_size: 2
     agm:
-      rot: False
+      rot90: True
       crop: True
+      affine: True
       hflip: True
       vflip: True
       blur: True
+      color: True
       noise: False
-      rot90: False
 
   train:
     name: KITS19

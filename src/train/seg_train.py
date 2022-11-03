@@ -1,15 +1,15 @@
 from copy import deepcopy
 
 import mindspore as ms
+import numpy as np
 from loss import get_loss
+from matplotlib import pyplot as PLT
 from mindspore import nn
 from mindspore import ops as P
 from mindspore.common import dtype as mstype
 from utils.registry import TRAINER_REGISTRY
 
 from train.base_train import BaseTrain
-import numpy as np
-from matplotlib import pyplot as PLT
 
 
 @TRAINER_REGISTRY
@@ -26,24 +26,16 @@ class SegTrain(BaseTrain):
             'outconv1.weight',
             'outconv2.weight',
             'outconv3.weight',
-            'outconv4.weight' ,
-            # 'conv1.conv.0.weight',
+            'outconv4.weight',
+            'conv1.conv.0.weight',
             'ca1.fc.0.weight',
-            'ca1.fc.0.bias',
             'ca1.fc.2.weight',
-            'ca1.fc.2.bias',
             'ca2.fc.0.weight',
-            'ca2.fc.0.bias',
             'ca2.fc.2.weight',
-            'ca2.fc.2.bias',
             'ca3.fc.0.weight',
-            'ca3.fc.0.bias',
             'ca3.fc.2.weight',
-            'ca3.fc.2.bias',
             'ca4.fc.0.weight',
-            'ca4.fc.0.bias',
             'ca4.fc.2.weight',
-            'ca4.fc.2.bias',
         ]
         for param in self.net.trainable_params():
             if param.name not in train_param:
@@ -74,60 +66,60 @@ class SegTrain(BaseTrain):
         return out
 
 
-class SegWithLossCell(nn.Cell):
-    def __init__(self, backbone, loss_fn):
-        """输入有两个，前向网络backbone和损失函数loss_fn"""
-        super(SegWithLossCell, self).__init__(auto_prefix=False)
-        self._backbone = backbone
-        self._loss_fn = loss_fn
+# class SegWithLossCell(nn.Cell):
+#     def __init__(self, backbone, loss_fn):
+#         """输入有两个，前向网络backbone和损失函数loss_fn"""
+#         super(SegWithLossCell, self).__init__(auto_prefix=False)
+#         self._backbone = backbone
+#         self._loss_fn = loss_fn
 
-        self.softmax = P.Softmax(axis=1)
-        self.sigmoid = P.Sigmoid()
+#         self.softmax = P.Softmax(axis=1)
+#         self.sigmoid = P.Sigmoid()
 
-        self.one_hot = P.OneHot(axis=1)
-        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
-            0.0, mstype.float32
-        )
+#         self.one_hot = P.OneHot(axis=1)
+#         self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+#             0.0, mstype.float32
+#         )
 
-    def construct(self, data, labels):
-        output = self._backbone(data)
-        c = output.shape[1]
-        if c == 1:
-            output = self.sigmoid(output)
-        else:
-            output = self.softmax(output)
+#     def construct(self, data, labels):
+#         output = self._backbone(data)
+#         c = output.shape[1]
+#         if c == 1:
+#             output = self.sigmoid(output)
+#         else:
+#             output = self.softmax(output)
 
-            labels = self.cast(labels, mstype.int32)
-            labels = self.one_hot(labels, c, self.on_value, self.off_value)
+#             labels = self.cast(labels, mstype.int32)
+#             labels = self.one_hot(labels, c, self.on_value, self.off_value)
 
-        return self._loss_fn(output, labels)
+#         return self._loss_fn(output, labels)
 
 
-class SegWithEvalCell(nn.Cell):
-    def __init__(self, backbone, loss_fn):
-        """输入有两个，前向网络backbone和损失函数loss_fn"""
-        super(SegWithEvalCell, self).__init__(auto_prefix=False)
-        self._backbone = backbone
-        self._loss_fn = loss_fn
+# class SegWithEvalCell(nn.Cell):
+#     def __init__(self, backbone, loss_fn):
+#         """输入有两个，前向网络backbone和损失函数loss_fn"""
+#         super(SegWithEvalCell, self).__init__(auto_prefix=False)
+#         self._backbone = backbone
+#         self._loss_fn = loss_fn
 
-        self.argmax = P.Argmax(axis=1)
-        self.sigmoid = P.Sigmoid()
+#         self.argmax = P.Argmax(axis=1)
+#         self.sigmoid = P.Sigmoid()
 
-        self.one_hot = P.OneHot(axis=1)
-        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
-            0.0, mstype.float32
-        )
+#         self.one_hot = P.OneHot(axis=1)
+#         self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+#             0.0, mstype.float32
+#         )
 
-    def construct(self, data, labels):
-        output = self._backbone(data)
+#     def construct(self, data, labels):
+#         output = self._backbone(data)
 
-        if c == 1:
-            output = self.sigmoid(output)
-        else:
-            output = self.argmax(output)
-            output = self.cast(output, mstype.float32)
+#         if c == 1:
+#             output = self.sigmoid(output)
+#         else:
+#             output = self.argmax(output)
+#             output = self.cast(output, mstype.float32)
 
-            labels = self.cast(labels, mstype.int32)
-            labels = self.one_hot(labels, c, self.on_value, self.off_value)
+#             labels = self.cast(labels, mstype.int32)
+#             labels = self.one_hot(labels, c, self.on_value, self.off_value)
 
-        return output, labels
+#         return output, labels

@@ -10,11 +10,7 @@ from utils.registry import METRIC_REGISTRY
 class DiceMetric(nn.Metric):
     """DiceMetric"""
 
-    def __init__(
-        self,
-        ignore_indiex=None,
-        one_channel=None
-    ):
+    def __init__(self, ignore_indiex=None, one_channel=None):
         super(DiceMetric, self).__init__()
         self.dice_sum = 0.0
         self.count = 0.0
@@ -28,12 +24,14 @@ class DiceMetric(nn.Metric):
         if one_channel:
             self.dice = nn.MultiClassDiceLoss(activation=None)
         else:
-            self.dice = nn.MultiClassDiceLoss(ignore_indiex=ignore_indiex, activation=None)
+            self.dice = nn.MultiClassDiceLoss(
+                ignore_indiex=ignore_indiex, activation=None
+            )
         self.dice.set_grad(False)
         self.dice.set_train(False)
-        
+
         self.oc = one_channel
-        
+
     def clear(self):
         """Resets the internal evaluation result to initial state."""
         self.dice_sum = 0.0
@@ -50,19 +48,19 @@ class DiceMetric(nn.Metric):
             Predicted values.
         """
         output = output[0]
-        
+
         target = self.cast(target, mstype.int32)
         target = self.one_hot(target, 3, self.on_value, self.off_value)
-        
+
         output = self.argmax(output)
         output = self.one_hot(output, 3, self.on_value, self.off_value)
-        
+
         if self.oc:
-            output = output[:,self.oc:self.oc+1]
-            target = target[:,self.oc:self.oc+1]
-            dice = 1-self.dice(output, target)
+            output = output[:, self.oc : self.oc + 1]
+            target = target[:, self.oc : self.oc + 1]
+            dice = 1 - self.dice(output, target)
         else:
-            dice = 1-self.dice(output, target)
+            dice = 1 - self.dice(output, target)
 
         self.dice_sum += dice * output.shape[0]
 

@@ -70,7 +70,8 @@ def init_work(opt):
 
     logger.info(msg)
 
-#TODO copy log file
+
+# TODO copy log file
 def auto_resume(opt):
     log = glob.glob(
         os.path.join(root_path, opt["output_dir"], "train", opt["name"] + "_*")
@@ -99,8 +100,8 @@ def train_pipeline(opt):
     logger = LM("root")
     train_ds = get_dataset(opt["datasets"]["train"], True)
     val_ds = get_dataset(opt["datasets"]["val"], True)
-    
-    ckpt,epoch,iter=None,0,0
+
+    ckpt, epoch, iter = None, 0, 0
     if opt['auto_resume']:
         try:
             ckpt, epoch, iter = auto_resume(opt)
@@ -117,9 +118,9 @@ def train_pipeline(opt):
         train.load_ckpt(
             opt["train"].get("load_ckpt"),
             filter_prefix=[
-                "network.conv1.conv.0",
-                "moment1.conv1.conv.0",
-                "moment2.conv1.conv.0",
+                # "network.conv1.conv.0",
+                # "moment1.conv1.conv.0",
+                # "moment2.conv1.conv.0",
                 "network.outconv1",
                 "moment1.outconv1",
                 "moment2.outconv1",

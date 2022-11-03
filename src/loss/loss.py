@@ -1,6 +1,7 @@
 from cmath import log
 from inspect import Parameter
 from math import gamma
+
 import mindspore as ms
 from mindspore import nn
 from mindspore import ops as P
@@ -85,10 +86,10 @@ class FocalLoss(LossBase):
 
     def construct(self, logits, labels):
         # if self.mask:
-        mask = labels[:,1:,...].sum(axis=1)
+        mask = labels[:, 1:, ...].sum(axis=1)
         mask = self.ne(mask, 0)
         mask = self.cast(mask, mstype.float32)
-        
+
         loss = self.ce(logits, labels)
         pt = self.exp(-loss)
         weight = (1 - pt) ** self.gamma
@@ -98,12 +99,12 @@ class FocalLoss(LossBase):
             pass
         elif self.reduction == 'sum':
             if self.mask:
-                loss = self.sum(loss*mask)
+                loss = self.sum(loss * mask)
             else:
                 loss = self.sum(loss)
         elif self.reduction == 'mean':
             if self.mask:
-                loss = self.sum(loss*mask) / self.sum(mask)
+                loss = self.sum(loss * mask) / self.sum(mask)
             else:
                 loss = self.mean(loss)
         else:
@@ -131,7 +132,7 @@ class DiceLoss(LossBase):
 
 
 class MSSSIMLoss(LossBase):
-    def __init__(self,ignore_indiex=0):
+    def __init__(self, ignore_indiex=0):
         super().__init__()
         self.msssim = nn.MSSSIM(max_val=1.0, k1=0.01**2, k2=0.03**2)
         # self.msssim.set_grad(False)
@@ -139,8 +140,8 @@ class MSSSIMLoss(LossBase):
         # self.ignore_indiex = ignore_indiex
 
     def construct(self, logits, labels):
-        logits = logits[:,1:,...]
-        labels = labels[:,1:,...]
+        logits = logits[:, 1:, ...]
+        labels = labels[:, 1:, ...]
         loss = self.msssim(logits, labels)
         # loss = self.msssim(logits, labels)
         loss = 1 - self.mean(loss)
@@ -177,8 +178,8 @@ class SegHybridLoss(LossBase):
             + self.ssim(logits, labels)
             + self.dice(logits, labels)
         )
-        
-        
+
+
 @LOSS_REGISTRY
 class DSHybridLoss(LossBase):
     def __init__(self):
@@ -196,25 +197,24 @@ class DSHybridLoss(LossBase):
         self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
             0.0, mstype.float32
         )
-        
+
     def construct(self, logits, labels):
-        loss = ms.Tensor(0,ms.float32)
-        
+        loss = ms.Tensor(0, ms.float32)
+
         # l = len(logits)
         # c = logits[0].shape[1]
-        
+
         labels = self.cast(labels, mstype.int32)
         labels = self.one_hot(labels, 3, self.on_value, self.off_value)
-        
-        weight = [0.4,0.3,0.2,0.1]
-        
+
+        weight = [0.4, 0.3, 0.2, 0.1]
+
         for i in range(4):
             out = logits[i]
 
             out = self.softmax(out)
 
             loss += (
-                self.fl(out, labels) +  self.dice(out, labels)
-                + self.ssim(out, labels)
-            )*weight[i]
+                self.fl(out, labels) + self.dice(out, labels) + self.ssim(out, labels)
+            ) * weight[i]
         return loss
