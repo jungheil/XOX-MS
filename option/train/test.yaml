@@ -10,7 +10,7 @@ datasets:
     # std: 0.2
     slides: 3
     resp: True
-    batch_size: 2
+    batch_size: 1
     agm:
       rot90: True
       crop: True
@@ -46,7 +46,7 @@ train:
   type: SegTrain
   class: 3
   in_channels: 3
-  load_ckpt: weight/unet3plus.ckpt
+  # load_ckpt: weight/unet3plus.ckpt
   max_epoch: 500
   init_weights: none
 
@@ -74,6 +74,9 @@ train:
 
   max_iter: 20000
 
+# model:
+#   type: ShuffleUnet
+#   dropout: 0.5
 model:
   type: UNET3PLUS
 

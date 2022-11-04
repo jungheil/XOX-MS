@@ -189,6 +189,7 @@ class DSHybridLoss(LossBase):
         self.ssim = MSSSIMLoss()
         # self.dice = DiceLoss()
         self.dice = nn.MultiClassDiceLoss(ignore_indiex=0, activation=None)
+        self.dice_zl = nn.MultiClassDiceLoss(activation=None)
 
         self.softmax = P.Softmax(axis=1)
         self.sigmoid = P.Sigmoid()
@@ -215,6 +216,9 @@ class DSHybridLoss(LossBase):
             out = self.softmax(out)
 
             loss += (
-                self.fl(out, labels) + self.dice(out, labels) + self.ssim(out, labels)
+                self.fl(out, labels)
+                + self.dice(out, labels)
+                + self.ssim(out, labels)
+                + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
             ) * weight[i]
         return loss

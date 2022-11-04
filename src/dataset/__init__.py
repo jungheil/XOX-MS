@@ -39,15 +39,15 @@ def get_dataset(opt, is_train=True):
                     RandomCustom(Rot90, process_prob=0.5, rand_params={'k': (1, 3)})
                 )
             # if opt['agm'].get('rot'):
-            #     trans.append(RandomCustom(vs.Rotate,rand_params={'degrees':(-5.,5.)},resample=Inter.BICUBIC))
+            #     trans.append(RandomCustom(vs.Rotate,rand_params={'degrees':(-5.,5.)},resample=Inter.NEAREST))
             if opt['agm'].get('affine'):
                 trans.append(
                     RandomCustom(
                         Affine,
                         rand_params={
                             'degrees': (-5.0, 5.0),
-                            'shift_x': (0.9, 1.0),
-                            'shift_y': (0.9, 1.0),
+                            'shift_x': (-0.15, 0.15),
+                            'shift_y': (-0.15, 0.15),
                             'shear_x': (0,20),
                             'shear_y': (0,20),
                         },
@@ -59,7 +59,7 @@ def get_dataset(opt, is_train=True):
                         RescaleCrop,
                         size=opt['size'],
                         rand_params={'scale': (0.8, 1.2), 'ratio': (0.75, 1.333)},
-                        interpolation=Inter.BICUBIC,
+                        interpolation=Inter.NEAREST,
                     )
                 )
             else:

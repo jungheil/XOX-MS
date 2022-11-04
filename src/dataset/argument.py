@@ -95,7 +95,7 @@ class Affine:
             degrees=(degrees, degrees),
             translate=(shift_x, shift_x, shift_y, shift_y),
             shear=(shear_x, shear_x, shear_y, shear_y),
-            resample=Inter.BICUBIC,
+            resample=Inter.NEAREST,
         )
 
     def __call__(self, img):

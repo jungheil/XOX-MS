@@ -83,6 +83,10 @@ class BaseTrain:
         return optimizer
 
     def get_schedule(self, type, **kwds):
+        warmup_step = kwds.get("warmup")
+        try:kwds.pop("warmup")
+        except: pass
+
         if type == "None":
             schedule = ConstantLR(kwds["lr"])
         elif type == "MultiStepLR":
@@ -95,7 +99,6 @@ class BaseTrain:
         else:
             raise NotImplementedError(f"schedule {type} is not supperted yet.")
 
-        warmup_step = kwds.get("warmup")
         if warmup_step:
             schedule = PluginWarmUpLR(warmup_step, schedule)
         return PluginResumeLR(self.resume_iter, schedule)
