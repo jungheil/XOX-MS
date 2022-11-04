@@ -1,4 +1,4 @@
-name: test
+name: train
 # seed: 666
 device: GPU
 
@@ -6,10 +6,7 @@ datasets:
   common:
     num_parallel_workers: 1
     size: 512
-    # mean: 120
-    # std: 0.2
-    slides: 3
-    resp: True
+    channel: 3
     batch_size: 1
     agm:
       rot90: True
@@ -29,7 +26,6 @@ datasets:
     seg_re: "case_[0-9]*/seg.npy"
     # img_re: "case_0000[0-9]/ct.npy"
     # seg_re: "case_0000[0-9]/seg.npy"
-    # range: 255/0
     shuffle: True
 
   val:
@@ -48,7 +44,7 @@ train:
   in_channels: 3
   # load_ckpt: weight/unet3plus.ckpt
   max_epoch: 500
-  init_weights: none
+  init_weights: henormal
 
   loss:
     type: DSHybridLoss
@@ -70,7 +66,6 @@ train:
     ZL_DICE:
       type: DiceMetric
       one_channel: 2
-    # SegIOUMetric:
 
   max_iter: 20000
 
@@ -85,4 +80,4 @@ output:
   save_ckpt_freq: 1
   save_best_ckpt: True
   eval_freq: 1
-  save_img: 100
+  save_img: inf

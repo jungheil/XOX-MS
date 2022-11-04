@@ -3,14 +3,10 @@ from copy import deepcopy
 import mindspore as ms
 import numpy as np
 from loss import get_loss
-from matplotlib import pyplot as PLT
-from mindspore import nn
 from mindspore import ops as P
-from mindspore.common import dtype as mstype
 from utils.registry import TRAINER_REGISTRY
 
-from train.base_train import BaseTrain
-
+from train.base_train import BaseTrain, EmptyWithEvalCell
 
 @TRAINER_REGISTRY
 class SegTrain(BaseTrain):
@@ -18,46 +14,57 @@ class SegTrain(BaseTrain):
         super(SegTrain, self).__init__(opt, logger, resume_epoch, resume_iter)
         self.opt = opt
 
-        self.loss_fn = get_loss(opt["train"])
-        scheduler_opt = deepcopy(opt["train"]["scheduler"])
-        scheduler_type = scheduler_opt.pop("type")
-        self.scheduler = self.get_schedule(scheduler_type, **scheduler_opt)
-        # train_param = [
-        #     'outconv1.weight',
-        #     'outconv2.weight',
-        #     'outconv3.weight',
-        #     'outconv4.weight',
-        #     'conv1.conv.0.weight',
-        #     'ca1.fc.0.weight',
-        #     'ca1.fc.2.weight',
-        #     'ca2.fc.0.weight',
-        #     'ca2.fc.2.weight',
-        #     'ca3.fc.0.weight',
-        #     'ca3.fc.2.weight',
-        #     'ca4.fc.0.weight',
-        #     'ca4.fc.2.weight',
-        # ]
-        # for param in self.net.trainable_params():
-        #     if param.name not in train_param:
-        #         param.requires_grad = False
-        self.optim = self.get_optimizer(
-            opt["train"]["optim"]["type"],
-            self.net.trainable_params(),
-            lr=self.scheduler,
-        )
-        # self.loss_net = SegWithLossCell(self.net, self.loss_fn)
-        # self.train_net = nn.TrainOneStepCell(self.loss_net, self.optim)
-        # self.eval_net = SegWithEvalCell(self.net, self.loss_fn)
-        self.train_model = ms.Model(
-            network=self.net,
-            loss_fn=self.loss_fn,
-            optimizer=self.optim,
-            metrics=self.metric,
-        )
+        if self.is_train:
+            self.loss_fn = get_loss(opt["train"])
+            scheduler_opt = deepcopy(opt["train"]["scheduler"])
+            scheduler_type = scheduler_opt.pop("type")
+            self.scheduler = self.get_schedule(scheduler_type, **scheduler_opt)
+            # train_param = [
+            #     'outconv1.weight',
+            #     'outconv2.weight',
+            #     'outconv3.weight',
+            #     'outconv4.weight',
+            #     'conv1.conv.0.weight',
+            #     'ca1.fc.0.weight',
+            #     'ca1.fc.2.weight',
+            #     'ca2.fc.0.weight',
+            #     'ca2.fc.2.weight',
+            #     'ca3.fc.0.weight',
+            #     'ca3.fc.2.weight',
+            #     'ca4.fc.0.weight',
+            #     'ca4.fc.2.weight',
+            # ]
+            # for param in self.net.trainable_params():
+            #     if param.name not in train_param:
+            #         param.requires_grad = False
+            self.optim = self.get_optimizer(
+                opt["train"]["optim"]["type"],
+                self.net.trainable_params(),
+                lr=self.scheduler,
+            )
+            # self.loss_net = SegWithLossCell(self.net, self.loss_fn)
+            # self.train_net = nn.TrainOneStepCell(self.loss_net, self.optim)
+            # self.eval_net = SegWithEvalCell(self.net, self.loss_fn)
+            self.train_model = ms.Model(
+                network=self.net,
+                loss_fn=self.loss_fn,
+                optimizer=self.optim,
+                metrics=self.metric,
+            )
+        else:
+            self.train_model = ms.Model(
+                network=self.net,
+                eval_network=EmptyWithEvalCell(self.net),
+                metrics=self.metric,
+            )
 
     def post_process(self, out):
-        out = out[0]
-        seg = P.Argmax(axis=1)(out).asnumpy().squeeze()
+        if isinstance(out, tuple):
+            out = out[0]
+        if len(out.shape) == 4:
+            seg = P.Argmax(axis=1)(out).asnumpy().squeeze()
+        elif len(out.shape) == 3:
+            seg = P.Argmax(axis=0)(out).asnumpy()
         out = np.zeros((seg.shape[0], seg.shape[1], 3))
 
         # out[seg==0] = np.array(255,0,0)

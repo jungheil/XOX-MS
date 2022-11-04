@@ -3,12 +3,9 @@ import os
 import time
 from shutil import copyfile
 
-import cv2
 import mindspore as ms
-import numpy as np
-from mindspore import context, nn
+from mindspore import context
 from mindspore.common import set_seed
-from zmq import device
 
 from dataset import get_dataset
 from train import get_trainer
@@ -71,7 +68,6 @@ def init_work(opt):
     logger.info(msg)
 
 
-# TODO copy log file
 def auto_resume(opt):
     log = glob.glob(
         os.path.join(root_path, opt["output_dir"], "train", opt["name"] + "_*")
@@ -105,8 +101,9 @@ def train_pipeline(opt):
     if opt['auto_resume']:
         try:
             ckpt, epoch, iter = auto_resume(opt)
+            logger.info(f'[resume] epoch: {epoch}, iter: {iter}')
         except Exception as e:
-            logger.warning(f'Auto resume failed! {repr(e)}')
+            logger.warning(f'[resume] Auto resume failed! {repr(e)}')
 
     if ckpt:
         train = get_trainer(opt, logger, resume_epoch=epoch, resume_iter=iter)
@@ -114,17 +111,17 @@ def train_pipeline(opt):
     else:
         train = get_trainer(opt, logger)
 
-    if opt["train"].get("load_ckpt"):
+    if opt["train"].get("load_ckpt") and not opt['auto_resume']:
         train.load_ckpt(
             opt["train"].get("load_ckpt"),
-            filter_prefix=[
-                # "network.conv1.conv.0",
-                # "moment1.conv1.conv.0",
-                # "moment2.conv1.conv.0",
-                "network.outconv1",
-                "moment1.outconv1",
-                "moment2.outconv1",
-            ],
+            # filter_prefix=[
+            #     # "network.conv1.conv.0",
+            #     # "moment1.conv1.conv.0",
+            #     # "moment2.conv1.conv.0",
+            #     "network.outconv1",
+            #     "moment1.outconv1",
+            #     "moment2.outconv1",
+            # ],
         )
 
     train.train(train_ds, val_ds)

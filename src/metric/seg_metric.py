@@ -47,7 +47,8 @@ class DiceMetric(nn.Metric):
         preds : 'NumpyArray' or list of `NumpyArray`
             Predicted values.
         """
-        output = output[0]
+        if isinstance(output, tuple):
+            output = output[0]
 
         target = self.cast(target, mstype.int32)
         target = self.one_hot(target, 3, self.on_value, self.off_value)

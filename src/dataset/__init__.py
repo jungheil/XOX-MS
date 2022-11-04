@@ -9,6 +9,7 @@ from utils.registry import DATASET_REGISTRY
 
 from dataset.argument import (Affine, RandomCustom, RandomNoise, RescaleCrop,
                               Rot90)
+from utils.logger import LM
 
 __all__ = ['get_dataset']
 
@@ -23,6 +24,7 @@ _import_modules = [importlib.import_module(f'dataset.{f}') for f in filenames]
 
 
 def get_dataset(opt, is_train=True):
+    logger = LM('root')
     dataset = DATASET_REGISTRY.get(opt['type'])(opt)
     ds = de.GeneratorDataset(
         dataset,
@@ -78,7 +80,6 @@ def get_dataset(opt, is_train=True):
                 )
             if opt['agm'].get('noise'):
                 agms.append(RandomNoise())
-            # TODO DATA ARGUMENTATION
             trans = de.transforms.Compose(trans)
             agms = de.transforms.Compose(agms)
 
@@ -106,7 +107,12 @@ def get_dataset(opt, is_train=True):
     else:
         ds = ds.map(
             operations=vs.Resize([opt['size'], opt['size']]),
-            input_columns=['img', 'seg'],
+            input_columns=['img'],
+            num_parallel_workers=opt['num_parallel_workers'],
+        )
+        ds = ds.map(
+            operations=vs.Resize([opt['size'], opt['size']]),
+            input_columns=['seg'],
             num_parallel_workers=opt['num_parallel_workers'],
         )
         # ds = ds.map(operations=vs.Normalize(mean=opt['mean'], std=opt['std']), input_columns=['img'], num_parallel_workers=opt['num_parallel_workers'])
@@ -122,4 +128,6 @@ def get_dataset(opt, is_train=True):
         )
 
     ds = ds.batch(opt['batch_size'], drop_remainder=True)
+    
+    logger.info(f"[DS] Img size: {opt['size']}, Channels: {opt['channel']}, Batch size: {opt['batch_size']}, Shuffle: {opt['shuffle']}.")
     return ds

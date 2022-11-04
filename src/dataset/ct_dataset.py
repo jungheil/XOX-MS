@@ -7,11 +7,13 @@ import mindspore.dataset as de
 import numpy as np
 from utils.medicine import GetBodyArea, LoadNii, ReSp
 from utils.registry import DATASET_REGISTRY
+from .base_dataset import BaseDS
 
 
 @DATASET_REGISTRY
-class CTDS:
+class CTDS(BaseDS):
     def __init__(self, opt):
+        super().__init__(opt)
         root = opt['path']
         if root[-1] != '/':
             root += '/'
@@ -19,7 +21,7 @@ class CTDS:
         self.path_seg = glob(root + opt['seg_re'])
         assert len(self.path_img) == len(self.path_seg) and len(self.path_img) != 0
         self.nii_size = len(self.path_img)
-        self.slides = opt['slides']
+        self.slides = opt['channel']
         self.shuffle = opt['shuffle']
         assert self.slides % 2 != 0
 
@@ -34,6 +36,10 @@ class CTDS:
         self.len = sum(self.img_size)
 
         self.next_img(shuffle=self.shuffle)
+
+        self.logger.info(
+            f'[DS {self.__class__.__name__}] Create dataset {self.name}.Total CT: {self.nii_size}, Total slides: {self.len}.'
+        )
 
     def next_img(self, shuffle=False):
         self.ci = self.ci + 1

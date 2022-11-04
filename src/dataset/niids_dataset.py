@@ -7,11 +7,13 @@ import mindspore.dataset as de
 import numpy as np
 from utils.medicine import GetBodyArea, LoadNii, ReSp
 from utils.registry import DATASET_REGISTRY
+from .base_dataset import BaseDS
 
 
 @DATASET_REGISTRY
-class NIIDS:
+class NIIDS(BaseDS):
     def __init__(self, opt):
+        super().__init__(opt)
         root = opt['path']
         if root[-1] != '/':
             root += '/'

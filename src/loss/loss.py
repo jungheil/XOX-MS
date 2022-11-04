@@ -68,7 +68,6 @@ class SegCrossEntropy(LossBase):
         return loss + dice
 
 
-# TODO mask
 class FocalLoss(LossBase):
     def __init__(
         self, gamma=2, label_smoothing=0.0, reduction='mean', mask=True

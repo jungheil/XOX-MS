@@ -1,5 +1,3 @@
-import functools
-
 import mindspore as ms
 from mindspore.common import dtype as mstype
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule

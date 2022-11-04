@@ -51,11 +51,20 @@ def parse_options(root_path, is_train=True):
 
     opt['auto_resume'] = args.auto_resume
     opt['opt_path'] = args.opt
+    
     if is_train:
         opt['phase'] = 'train'
+    else:
+        opt['phase'] = 'eval'
+        opt['datasets']['common']['shuffle']=False
+        
+    opt['output']['phase'] = opt['phase']
+        
     opt['root_path'] = root_path
     opt['output']['name'] = opt['name']
     opt['output_dir'] = 'log'
+    if opt['output'].get('save_img') == 'inf':
+        opt['output']['save_img'] = float('inf')
 
     # datasets common option
     ds_common = opt['datasets'].get('common')
@@ -76,5 +85,8 @@ def parse_options(root_path, is_train=True):
         std = opt['datasets'][k].get('std')
         if isinstance(std, (int, float)):
             opt['datasets'][k]['std'] = [std] * opt['datasets'][k]['slides']
-
+            
+    if is_train and not opt['datasets']['val']:
+        opt['output']['eval_freq'] = 0
+        
     return opt

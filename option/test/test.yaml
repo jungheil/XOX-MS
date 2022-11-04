@@ -1,0 +1,35 @@
+name: test
+device: GPU
+
+datasets:
+  common:
+    num_parallel_workers: 1
+    size: 512
+    channel: 3
+    batch_size: 1
+
+  val_1:
+    name: KITS19_VAL
+    type: CTDS
+    path: datasets/kits19/val
+    img_re: "case_[0-9]*/ct.npy"
+    seg_re: "case_[0-9]*/seg.npy"
+
+eval:
+  type: SegTrain
+  class: 3
+  in_channels: 3
+  load_ckpt: weight/test_16_122080.ckpt
+
+  val:
+    SZ_DICE:
+      type: DiceMetric
+      ignore_indiex: 0
+    ZL_DICE:
+      type: DiceMetric
+      one_channel: 2
+model:
+  type: UNET3PLUS
+
+output:
+  save_img: inf

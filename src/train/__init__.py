@@ -13,4 +13,9 @@ _import_modules = [importlib.import_module(f'train.{f}') for f in filenames]
 
 
 def get_trainer(opt, *args, **kwds):
-    return TRAINER_REGISTRY.get(opt['train']['type'])(opt,*args, **kwds)
+    if opt['phase'] == 'train':
+        return TRAINER_REGISTRY.get(opt['train']['type'])(opt,*args, **kwds)
+    elif opt['phase'] == 'eval':
+        return TRAINER_REGISTRY.get(opt['eval']['type'])(opt,*args, **kwds)
+    else:
+        raise NotImplementedError
