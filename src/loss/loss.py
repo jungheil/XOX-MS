@@ -246,3 +246,95 @@ class DSHybridLoss(LossBase):
                 / 3
             )
         return loss
+
+
+@LOSS_REGISTRY
+class TSHybridLoss(LossBase):
+    def __init__(self):
+        super().__init__()
+        self.fl = FocalLoss(reduction='mean')
+        # self.fl = nn.FocalLoss()
+        self.ssim = MSSSIMLoss(ignore_indiex=0)
+        self.ssim_zl = MSSSIMLoss()
+        # self.dice = DiceLoss()
+        self.dice = nn.MultiClassDiceLoss(ignore_indiex=0, activation=None)
+        self.dice_zl = nn.MultiClassDiceLoss(activation=None)
+
+        self.softmax = P.Softmax(axis=1)
+        self.sigmoid = P.Sigmoid()
+
+        self.one_hot = P.OneHot(axis=1)
+        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+            0.0, mstype.float32
+        )
+        self.adt = OutAdt()
+
+    def construct(self, logits, labels):
+        loss = ms.Tensor(0, ms.float32)
+        
+
+        # l = len(logits)
+        # c = logits[0].shape[1]
+
+        labels = self.cast(labels, mstype.int32)
+        labels = self.one_hot(labels, 3, self.on_value, self.off_value)
+
+        weight = [0.4, 0.3, 0.2, 0.1]
+
+        for i in range(4):
+            out = logits[i]
+            
+            out = self.adt(out)
+
+            # out = self.softmax(out)
+
+            loss += (
+                (
+                    self.fl(out, labels)
+                    + self.dice(out, labels)*0.5
+                    + self.ssim(out, labels)*0.5
+                    + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+                    + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+                )
+                * weight[i]
+                / 4
+            )
+        return loss
+    
+    
+class OutAdt(nn.Cell):
+    def __init__(self):
+        super().__init__(auto_prefix=False)
+        self.lq = P.LessEqual()
+        self.ln = P.LogicalNot()
+        self.lgand = P.LogicalAnd()
+        
+    def construct(self, x):
+        # out_shape = P.Shape(x)
+        # out_shape[1] = 3
+        # out = ms.Tensor(0,mstype.Bool,out_shape)
+        
+        # x = P.sigmoid(x)
+        # xs = P.le(x,0.5)
+        
+        # bg = xs[:,0:1,...]
+        # sz = xs[:,1:2,...]
+
+        # nbg = self.ln(bg)
+        
+        # sz = self.lgand(sz,nbg)
+        # zl = self.lgand(self.ln(sz),nbg)
+        
+        # out = P.concat((bg,sz,zl), axis=1)
+        # out = P.cast(out, mstype.float32)
+        
+        x = P.sigmoid(x)
+        bg = 1-x[:,0:1,...]
+        sz = x[:,0:1,...] * (1-x[:,1:2,...])
+        zl = x[:,0:1,...] * x[:,1:2,...]
+        
+        out = P.concat((bg,sz,zl), axis=1)
+
+        
+        return out
+        

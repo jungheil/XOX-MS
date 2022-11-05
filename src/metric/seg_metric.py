@@ -48,7 +48,7 @@ class DiceMetric(nn.Metric):
             Predicted values.
         """
         if isinstance(output, tuple):
-            output = output[0]
+            output = output[0]            
 
         target = self.cast(target, mstype.int32)
         target = self.one_hot(target, 3, self.on_value, self.off_value)
@@ -70,6 +70,112 @@ class DiceMetric(nn.Metric):
 
     def eval(self):
         return self.dice_sum / self.count
+    
+    
+@METRIC_REGISTRY
+class TSDiceMetric(nn.Metric):
+    """DiceMetric"""
+
+    def __init__(self, ignore_indiex=None, one_channel=None):
+        super(TSDiceMetric, self).__init__()
+        self.dice_sum = 0.0
+        self.count = 0.0
+        self.clear()
+        self.argmax = P.Argmax(axis=1)
+        self.one_hot = P.OneHot(axis=1)
+        self.cast = P.Cast()
+        self.on_value, self.off_value = ms.Tensor(1.0, mstype.float32), ms.Tensor(
+            0.0, mstype.float32
+        )
+        if one_channel:
+            self.dice = nn.MultiClassDiceLoss(activation=None)
+        else:
+            self.dice = nn.MultiClassDiceLoss(
+                ignore_indiex=ignore_indiex, activation=None
+            )
+        self.dice.set_grad(False)
+        self.dice.set_train(False)
+        
+        self.adt = OutAdt()
+
+        self.oc = one_channel
+
+    def clear(self):
+        """Resets the internal evaluation result to initial state."""
+        self.dice_sum = 0.0
+        self.count = 0.0
+
+    def update(self, output, target):
+        """Updates the internal evaluation result.
+
+        Parameters
+        ----------
+        labels : 'NumpyArray' or list of `NumpyArray`
+            The labels of the data.
+        preds : 'NumpyArray' or list of `NumpyArray`
+            Predicted values.
+        """
+        if isinstance(output, tuple):
+            output = output[0]
+            
+        output = self.adt(output)
+
+        target = self.cast(target, mstype.int32)
+        target = self.one_hot(target, 3, self.on_value, self.off_value)
+
+        output = self.argmax(output)
+        output = self.one_hot(output, 3, self.on_value, self.off_value)
+        # output = P.Softmax(1)(output)
+
+        if self.oc:
+            output = output[:, self.oc : self.oc + 1,...]
+            target = target[:, self.oc : self.oc + 1,...]
+            dice = 1 - self.dice(output, target)
+        else:
+            dice = 1 - self.dice(output, target)
+
+        self.dice_sum += dice * output.shape[0]
+
+        self.count += output.shape[0]
+
+    def eval(self):
+        return self.dice_sum / self.count
+    
+class OutAdt(nn.Cell):
+    def __init__(self):
+        super().__init__(auto_prefix=False)
+        self.lq = P.LessEqual()
+        self.ln = P.LogicalNot()
+        self.lgand = P.LogicalAnd()
+        
+    def construct(self, x):
+        # out_shape = P.Shape(x)
+        # out_shape[1] = 3
+        # out = ms.Tensor(0,mstype.Bool,out_shape)
+        
+        # x = P.sigmoid(x)
+        # xs = P.le(x,0.5)
+        
+        # bg = xs[:,0:1,...]
+        # sz = xs[:,1:2,...]
+
+        # nbg = self.ln(bg)
+        
+        # sz = self.lgand(sz,nbg)
+        # zl = self.lgand(self.ln(sz),nbg)
+        
+        # out = P.concat((bg,sz,zl), axis=1)
+        # out = P.cast(out, mstype.float32)
+        
+        x = P.sigmoid(x)
+        bg = 1-x[:,0:1,...]
+        sz = x[:,0:1,...] * (1-x[:,1:2,...])
+        zl = x[:,0:1,...] * x[:,1:2,...]
+        
+        out = P.concat((bg,sz,zl), axis=1)
+
+        
+        return out
 
 
 # @METRIC_REGISTRY

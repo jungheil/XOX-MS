@@ -117,7 +117,7 @@ class UNet3Plus(nn.Cell):
     def __init__(
         self,
         in_channels=3,
-        n_classes=3,
+        n_classes=2,
         feature_scale=4,
         # is_deconv=True,
         is_batchnorm=True,

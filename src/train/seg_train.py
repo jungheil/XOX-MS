@@ -5,6 +5,7 @@ import numpy as np
 from loss import get_loss
 from mindspore import ops as P
 from utils.registry import TRAINER_REGISTRY
+from mindspore import nn
 
 from train.base_train import BaseTrain, EmptyWithEvalCell
 
@@ -19,24 +20,24 @@ class SegTrain(BaseTrain):
             scheduler_opt = deepcopy(opt["train"]["scheduler"])
             scheduler_type = scheduler_opt.pop("type")
             self.scheduler = self.get_schedule(scheduler_type, **scheduler_opt)
-            # train_param = [
-            #     'outconv1.weight',
-            #     'outconv2.weight',
-            #     'outconv3.weight',
-            #     'outconv4.weight',
-            #     'conv1.conv.0.weight',
-            #     'ca1.fc.0.weight',
-            #     'ca1.fc.2.weight',
-            #     'ca2.fc.0.weight',
-            #     'ca2.fc.2.weight',
-            #     'ca3.fc.0.weight',
-            #     'ca3.fc.2.weight',
-            #     'ca4.fc.0.weight',
-            #     'ca4.fc.2.weight',
-            # ]
-            # for param in self.net.trainable_params():
-            #     if param.name not in train_param:
-            #         param.requires_grad = False
+            train_param = [
+                'outconv1.weight',
+                'outconv2.weight',
+                'outconv3.weight',
+                'outconv4.weight',
+                'conv1.conv.0.weight',
+                'ca1.fc.0.weight',
+                'ca1.fc.2.weight',
+                'ca2.fc.0.weight',
+                'ca2.fc.2.weight',
+                'ca3.fc.0.weight',
+                'ca3.fc.2.weight',
+                'ca4.fc.0.weight',
+                'ca4.fc.2.weight',
+            ]
+            for param in self.net.trainable_params():
+                if param.name not in train_param:
+                    param.requires_grad = False
             self.optim = self.get_optimizer(
                 opt["train"]["optim"]["type"],
                 self.net.trainable_params(),
@@ -59,11 +60,16 @@ class SegTrain(BaseTrain):
             )
 
     def post_process(self, out):
+        adt = OutAdt()
         if isinstance(out, tuple):
             out = out[0]
         if len(out.shape) == 4:
+            if out.shape[1] == 2:
+                out = adt(out)
             seg = P.Argmax(axis=1)(out).asnumpy().squeeze()
         elif len(out.shape) == 3:
+            if out.shape[0] == 2:
+                out = adt(out)
             seg = P.Argmax(axis=0)(out).asnumpy()
         out = np.zeros((seg.shape[0], seg.shape[1], 3))
 
@@ -72,7 +78,24 @@ class SegTrain(BaseTrain):
         out[seg == 2] = np.array([0, 0, 255])
         return out
 
+class OutAdt(nn.Cell):
+    def __init__(self):
+        super().__init__(auto_prefix=False)
+        self.lq = P.LessEqual()
+        self.ln = P.LogicalNot()
+        self.lgand = P.LogicalAnd()
+        
+    def construct(self, x):
+        x = P.sigmoid(x)
+        bg = 1-x[:,0:1,...]
+        sz = x[:,0:1,...] * (1-x[:,1:2,...])
+        zl = x[:,0:1,...] * x[:,1:2,...]
+        
+        out = P.concat((bg,sz,zl), axis=1)
 
+        return out
+    
+    
 # class SegWithLossCell(nn.Cell):
 #     def __init__(self, backbone, loss_fn):
 #         """输入有两个，前向网络backbone和损失函数loss_fn"""

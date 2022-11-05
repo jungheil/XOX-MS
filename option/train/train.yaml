@@ -7,14 +7,14 @@ datasets:
     num_parallel_workers: 1
     size: 512
     channel: 3
-    batch_size: 1
+    batch_size: 2
     agm:
-      rot90: True
+      rot90: False
       crop: True
       affine: True
       hflip: True
-      vflip: True
-      blur: True
+      vflip: False
+      blur: False
       color: True
       noise: False
 
@@ -24,8 +24,8 @@ datasets:
     path: datasets/kits19/train
     img_re: "case_[0-9]*/ct.npy"
     seg_re: "case_[0-9]*/seg.npy"
-    # img_re: "case_0000[0-9]/ct.npy"
-    # seg_re: "case_0000[0-9]/seg.npy"
+    # img_re: "case_00000/ct.npy"
+    # seg_re: "case_00000/seg.npy"
     shuffle: True
 
   val:
@@ -42,32 +42,30 @@ train:
   type: SegTrain
   class: 3
   in_channels: 3
-  # load_ckpt: weight/unet3plus.ckpt
-  max_epoch: 500
+  load_ckpt: weight/unet3plus.ckpt
+  max_epoch: 30
   init_weights: henormal
 
   loss:
-    type: DSHybridLoss
+    type: TSHybridLoss
 
   optim:
     type: AdamW
 
   scheduler:
-    type: None
-    lr: !!float 2e-4
-    milestones: [10000, 20000]
-    decay: 0.5
+    type: CosineDecayLR
+    min_lr: 0.00001
+    max_lr: 0.0001
+    decay_steps: 200000
     warmup: 10000
 
   val:
     SZ_DICE:
-      type: DiceMetric
+      type: TSDiceMetric
       ignore_indiex: 0
     ZL_DICE:
-      type: DiceMetric
+      type: TSDiceMetric
       one_channel: 2
-
-  max_iter: 20000
 
 # model:
 #   type: ShuffleUnet
@@ -80,4 +78,4 @@ output:
   save_ckpt_freq: 1
   save_best_ckpt: True
   eval_freq: 1
-  save_img: inf
+  save_img: 100
