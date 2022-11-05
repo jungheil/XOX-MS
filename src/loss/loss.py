@@ -237,12 +237,12 @@ class DSHybridLoss(LossBase):
             loss += (
                 (
                     self.fl(out, labels)
-                    + self.dice(out, labels)
-                    + self.ssim(out, labels)
+                    # + self.dice(out, labels)
+                    # + self.ssim(out, labels)
                     + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
                     + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
                 )
                 * weight[i]
-                / 5
+                / 3
             )
         return loss

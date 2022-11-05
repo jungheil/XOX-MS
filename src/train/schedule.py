@@ -39,8 +39,8 @@ class PluginWarmUpLR(LearningRateSchedule):
         self.min = P.Minimum()
 
     def construct(self, global_step):
-        global_step = self.min(global_step, self.steps)
-        return global_step / self.steps * self.schedule(global_step)
+        warmup_step = self.min(global_step, self.steps)
+        return warmup_step / self.steps * self.schedule(global_step)
 
 
 class ConstantLR(LearningRateSchedule):
@@ -61,7 +61,7 @@ class PluginResumeLR(LearningRateSchedule):
     def __init__(self, step, schedule):
         super(PluginResumeLR, self).__init__()
 
-        self.step = float(step)
+        self.step = step
         self.schedule = schedule
 
     def construct(self, global_step):

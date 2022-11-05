@@ -55,10 +55,11 @@ class DiceMetric(nn.Metric):
 
         output = self.argmax(output)
         output = self.one_hot(output, 3, self.on_value, self.off_value)
+        # output = P.Softmax(1)(output)
 
         if self.oc:
-            output = output[:, self.oc : self.oc + 1]
-            target = target[:, self.oc : self.oc + 1]
+            output = output[:, self.oc : self.oc + 1,...]
+            target = target[:, self.oc : self.oc + 1,...]
             dice = 1 - self.dice(output, target)
         else:
             dice = 1 - self.dice(output, target)
