@@ -85,7 +85,7 @@ def auto_resume(opt):
         )
     )
     assert len(ckpt), 'There is no ckpt to load.'
-    ckpt_path = sorted(ckpt)[-1]
+    ckpt_path = sorted(ckpt, key=lambda x: int(os.path.basename(x).split('_')[1]))[-1]
     epoch = int(os.path.basename(ckpt_path).split("_")[-2])
     iter = int(os.path.basename(ckpt_path).split("_")[-1][:-5])
     return ckpt_path, epoch, iter

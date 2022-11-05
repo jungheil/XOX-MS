@@ -131,18 +131,37 @@ class DiceLoss(LossBase):
 
 
 class MSSSIMLoss(LossBase):
-    def __init__(self, ignore_indiex=0):
+    def __init__(self, ignore_indiex=None):
         super().__init__()
         self.msssim = nn.MSSSIM(max_val=1.0, k1=0.01**2, k2=0.03**2)
         # self.msssim.set_grad(False)
         self.mean = P.ReduceMean()
-        # self.ignore_indiex = ignore_indiex
+        self.ignore_indiex = ignore_indiex
 
     def construct(self, logits, labels):
-        logits = logits[:, 1:, ...]
-        labels = labels[:, 1:, ...]
-        loss = self.msssim(logits, labels)
-        # loss = self.msssim(logits, labels)
+        if self.ignore_indiex is None:
+            ssim_logits = logits
+            ssim_labels = labels
+        elif self.ignore_indiex == 0:
+            ssim_logits = logits[:, 1:, ...]
+            ssim_labels = labels[:, 1:, ...]
+        elif self.ignore_indiex == P.Shape(logits)[1] - 1:
+            ssim_logits = logits[:, :-1, ...]
+            ssim_labels = labels[:, :-1, ...]
+        else:
+            ssim_logits = P.concat(
+                (
+                    logits[:, 0 : self.ignore_indiex, ...],
+                    logits[:, self.ignore_indiex + 1 :, ...],
+                )
+            )
+            ssim_labels = P.concat(
+                (
+                    labels[:, 0 : self.ignore_indiex, ...],
+                    labels[:, self.ignore_indiex + 1 :, ...],
+                )
+            )
+        loss = self.msssim(ssim_logits, ssim_labels)
         loss = 1 - self.mean(loss)
         return loss
 
@@ -185,7 +204,8 @@ class DSHybridLoss(LossBase):
         super().__init__()
         self.fl = FocalLoss(reduction='mean')
         # self.fl = nn.FocalLoss()
-        self.ssim = MSSSIMLoss()
+        self.ssim = MSSSIMLoss(ignore_indiex=0)
+        self.ssim_zl = MSSSIMLoss()
         # self.dice = DiceLoss()
         self.dice = nn.MultiClassDiceLoss(ignore_indiex=0, activation=None)
         self.dice_zl = nn.MultiClassDiceLoss(activation=None)
@@ -215,9 +235,14 @@ class DSHybridLoss(LossBase):
             out = self.softmax(out)
 
             loss += (
-                self.fl(out, labels)
-                + self.dice(out, labels)
-                + self.ssim(out, labels)
-                + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
-            ) * weight[i]
+                (
+                    self.fl(out, labels)
+                    + self.dice(out, labels)
+                    + self.ssim(out, labels)
+                    + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+                    + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+                )
+                * weight[i]
+                / 5
+            )
         return loss
