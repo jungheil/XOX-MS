@@ -114,14 +114,14 @@ def train_pipeline(opt):
     if opt["train"].get("load_ckpt") and not opt['auto_resume']:
         train.load_ckpt(
             opt["train"].get("load_ckpt"),
-            filter_prefix=[
-                # "network.conv1.conv.0",
-                # "moment1.conv1.conv.0",
-                # "moment2.conv1.conv.0",
-                "network.outconv1",
-                "moment1.outconv1",
-                "moment2.outconv1",
-            ],
+            # filter_prefix=[
+            #     # "network.conv1.conv.0",
+            #     # "moment1.conv1.conv.0",
+            #     # "moment2.conv1.conv.0",
+            #     "network.outconv1",
+            #     "moment1.outconv1",
+            #     "moment2.outconv1",
+            # ],
         )
 
     train.train(train_ds, val_ds)

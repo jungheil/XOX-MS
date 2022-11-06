@@ -13,6 +13,7 @@ import mindspore as ms
 from mindspore import context
 from mindspore import ops as P
 from mindspore import load_checkpoint, load_param_into_net, nn
+import cv2
 
 context.set_context(mode=context.GRAPH_MODE, device_target='CPU')
 # context.set_context(mode=context.PYNATIVE_MODE, device_target='GPU')
@@ -24,10 +25,10 @@ ckpt_file = '/home/cat/lrx/git/xox_ms/weight/final.ckpt'
 
 
 class SingleCT():
-    def __init__(self,nii_file ,channels = 3,win_centre = 150,win_middle = 500):
+    def __init__(self,nii ,channels = 3,win_centre = 150,win_middle = 500):
         super().__init__()
-        self.ct = nib.load(nii_file).get_fdata()
-        print(self.ct.shape)
+        self.ct = nii
+
         self.len = self.ct.shape[0]-(channels+1)//2
         self.channels = channels
         
@@ -62,8 +63,8 @@ class Pred:
         )
         self.argmax = P.Argmax(axis=1)
     
-    def get(self, nii_file):
-        dataset = SingleCT(nii_file,self.channels)
+    def get(self, nii):
+        dataset = SingleCT(nii,self.channels)
         area = dataset.get_area()
         ds = de.GeneratorDataset(
             dataset,
@@ -95,14 +96,23 @@ class Pred:
         pad_front = [np.zeros(out[0].shape) for _ in range(self.channels // 2)]
         pad_end = [np.zeros(out[0].shape) for _ in range(self.channels // 2)]
         
-        out = np.array(pad_front+out+pad_end)
-        out = ReSp(out,*area,restore=True)
-        return out
+        out = np.array(pad_front+out+pad_end, dtype=np.float32)
+        out = ReSp(out,*area,restore=True,interpolation=cv2.INTER_NEAREST)
+        return out.astype(np.int8)
         
         
 os.makedirs(output_dir, exist_ok=True)
 
 nii_file = glob.glob(os.path.join(nii_path,'*','imaging.nii.gz'))
+p = Pred(ckpt_file,3)
 for nii in tqdm(nii_file):
-    p = Pred(ckpt_file,3)
-    p.get(nii)
+    ct = nib.load(nii)
+    hd = ct.header
+    ct_data = p.get(ct.get_fdata())
+    if hd['sizeof_hdr'] == 348:
+        new_image = nib.Nifti1Image(ct_data, ct.affine, header=hd)
+    elif hd['sizeof_hdr'] == 540:
+        new_image = nib.Nifti2Image(ct_data, ct.affine, header=hd)
+    nib.save(new_image, os.path.join(output_dir,nii.split('/')[-2]+'.nii.gz'))
+
+    

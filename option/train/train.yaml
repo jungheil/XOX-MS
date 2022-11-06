@@ -42,8 +42,8 @@ train:
   type: SegTrain
   class: 3
   in_channels: 3
-  load_ckpt: weight/unet3plus.ckpt
-  max_epoch: 30
+  load_ckpt: weight/train_24_183120.ckpt
+  max_epoch: 70
   init_weights: henormal
 
   loss:
@@ -56,13 +56,16 @@ train:
     type: CosineDecayLR
     min_lr: 0.00001
     max_lr: 0.0001
-    decay_steps: 200000
+    decay_steps: 500000
     warmup: 10000
 
   val:
-    SZ_DICE:
+    TT_DICE:
       type: TSDiceMetric
       ignore_indiex: 0
+    SZ_DICE:
+      type: TSDiceMetric
+      one_channel: 1
     ZL_DICE:
       type: TSDiceMetric
       one_channel: 2
@@ -72,6 +75,7 @@ train:
 #   dropout: 0.5
 model:
   type: UNET3PLUS
+  n_classes: 2
 
 output:
   print_freq: 100

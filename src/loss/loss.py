@@ -258,7 +258,7 @@ class TSHybridLoss(LossBase):
         self.ssim_zl = MSSSIMLoss()
         # self.dice = DiceLoss()
         self.dice = nn.MultiClassDiceLoss(ignore_indiex=0, activation=None)
-        self.dice_zl = nn.MultiClassDiceLoss(activation=None)
+        self.dice_single = nn.DiceLoss()
 
         self.softmax = P.Softmax(axis=1)
         self.sigmoid = P.Sigmoid()
@@ -268,6 +268,8 @@ class TSHybridLoss(LossBase):
             0.0, mstype.float32
         )
         self.adt = OutAdt()
+        self.argmax = P.Argmax(axis=1)
+
 
     def construct(self, logits, labels):
         loss = ms.Tensor(0, ms.float32)
@@ -285,20 +287,37 @@ class TSHybridLoss(LossBase):
             out = logits[i]
             
             out = self.adt(out)
+            
+            # out = self.argmax(out)
+            # out = self.one_hot(out, 3, self.on_value, self.off_value)
 
             # out = self.softmax(out)
-
-            loss += (
-                (
-                    self.fl(out, labels)
-                    + self.dice(out, labels)*0.5
-                    + self.ssim(out, labels)*0.5
-                    + self.dice_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
-                    + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+            if labels[:, 2:3, ...].max() == 0:
+                loss += (
+                    (
+                        self.fl(out, labels)*2
+                        # + self.dice(out, labels)
+                        # + self.ssim(out, labels)
+                    + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])
+                    + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])
+                    )
+                    * weight[i]
+                    / 4
                 )
-                * weight[i]
-                / 4
-            )
+            else:
+                loss += (
+                    (
+                        self.fl(out, labels)
+                        # + self.dice(out, labels)
+                        # + self.ssim(out, labels)
+                    + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+                    + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+                    + self.dice_single(out[:, 2:3, ...], labels[:, 2:3, ...])
+                    + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+                    )
+                    * weight[i]
+                    / 4
+                )
         return loss
     
     

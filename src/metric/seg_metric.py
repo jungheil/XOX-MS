@@ -88,7 +88,7 @@ class TSDiceMetric(nn.Metric):
             0.0, mstype.float32
         )
         if one_channel:
-            self.dice = nn.MultiClassDiceLoss(activation=None)
+            self.dice = nn.DiceLoss()
         else:
             self.dice = nn.MultiClassDiceLoss(
                 ignore_indiex=ignore_indiex, activation=None
@@ -130,7 +130,10 @@ class TSDiceMetric(nn.Metric):
         if self.oc:
             output = output[:, self.oc : self.oc + 1,...]
             target = target[:, self.oc : self.oc + 1,...]
-            dice = 1 - self.dice(output, target)
+            if P.cast(output == target, mstype.float32).min():
+                dice=1
+            else:
+                dice = 1 - self.dice(output, target)
         else:
             dice = 1 - self.dice(output, target)
 

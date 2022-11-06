@@ -36,7 +36,7 @@ def GetBodyArea(ct, padding=5):
     return x, y, w, h
 
 
-def cvresize(src, size):
+def cvresize(src, size,interpolation=cv2.INTER_CUBIC):
     minc = min(size)
     s = src.shape[-1] // minc
     if s != 0 and src.shape[-1] != minc:
@@ -49,15 +49,15 @@ def cvresize(src, size):
             else:
                 dst[:, :, i * minc :] = cv2.resize(src[:, :, i * minc :], size)
     else:
-        dst = cv2.resize(src, size)
+        dst = cv2.resize(src, size,interpolation=interpolation)
     return dst
 
 
-def ReSp(src, x, y, w, h, restore=False, size=512):
+def ReSp(src, x, y, w, h, restore=False, size=512,interpolation=cv2.INTER_CUBIC):
     if restore:
         dst = np.zeros((src.shape[0], size, size), np.float64)
         src = src.transpose((1, 2, 0))
-        src = cvresize(src, [w, h])
+        src = cvresize(src, [w, h],interpolation)
         src = src.transpose((2, 0, 1))
         dst[:, y : y + h, x : x + w] = src
     else:
