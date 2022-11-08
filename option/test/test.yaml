@@ -19,15 +19,16 @@ eval:
   type: SegTrain
   class: 3
   in_channels: 3
-  load_ckpt: weight/test_16_122080.ckpt
+  load_ckpt: weight/c.ckpt
 
   val:
-    SZ_DICE:
-      type: DiceMetric
-      ignore_indiex: 0
     ZL_DICE:
-      type: DiceMetric
+      type: TSDiceMetric
       one_channel: 2
+    SZ_DICE:
+      type: TSDiceMetric
+      one_channel: 1
+
 model:
   type: UNET3PLUS
 

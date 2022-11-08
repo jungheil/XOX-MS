@@ -71,7 +71,7 @@ def get_dataset(opt, is_train=True):
             if opt['agm'].get('vflip'):
                 trans.append(RandomCustom(vs.VerticalFlip, process_prob=0.5))
             if opt['agm'].get('color'):
-                agms.append(vs.RandomColorAdjust((0.85, 1.15), (0.85, 1.15)))
+                agms.append(vs.RandomColorAdjust((0.95, 1.05), (0.95, 1.05)))
             if opt['agm'].get('blur'):
                 agms.append(
                     vs.GaussianBlur(

@@ -14,7 +14,7 @@ datasets:
       affine: True
       hflip: True
       vflip: False
-      blur: False
+      blur: True
       color: True
       noise: False
 
@@ -42,7 +42,7 @@ train:
   type: SegTrain
   class: 3
   in_channels: 3
-  load_ckpt: weight/train_24_183120.ckpt
+  load_ckpt: weight/train_5_37750.ckpt
   max_epoch: 70
   init_weights: henormal
 
@@ -54,21 +54,19 @@ train:
 
   scheduler:
     type: CosineDecayLR
-    min_lr: 0.00001
-    max_lr: 0.0001
-    decay_steps: 500000
-    warmup: 10000
+    min_lr: 0.00005
+    max_lr: 0.00015
+    decay_steps: 250000
+    warmup: 0
 
   val:
-    TT_DICE:
-      type: TSDiceMetric
-      ignore_indiex: 0
-    SZ_DICE:
-      type: TSDiceMetric
-      one_channel: 1
     ZL_DICE:
       type: TSDiceMetric
       one_channel: 2
+    SZ_DICE:
+      type: TSDiceMetric
+      one_channel: 1
+
 
 # model:
 #   type: ShuffleUnet

@@ -281,43 +281,72 @@ class TSHybridLoss(LossBase):
         labels = self.cast(labels, mstype.int32)
         labels = self.one_hot(labels, 3, self.on_value, self.off_value)
 
-        weight = [0.4, 0.3, 0.2, 0.1]
+        # weight = [0.4, 0.3, 0.2, 0.1]
 
-        for i in range(4):
-            out = logits[i]
+        # for i in range(4):
+        #     out = logits[i]
             
-            out = self.adt(out)
+        #     out = self.adt(out)
             
-            # out = self.argmax(out)
-            # out = self.one_hot(out, 3, self.on_value, self.off_value)
+        #     # out = self.argmax(out)
+        #     # out = self.one_hot(out, 3, self.on_value, self.off_value)
 
-            # out = self.softmax(out)
-            if labels[:, 2:3, ...].max() == 0:
-                loss += (
-                    (
-                        self.fl(out, labels)*2
-                        # + self.dice(out, labels)
-                        # + self.ssim(out, labels)
-                    + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])
-                    + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])
-                    )
-                    * weight[i]
-                    / 4
+        #     # out = self.softmax(out)
+            # if labels[:, 2:3, ...].max() == 0:
+            #     loss += (
+            #         (
+            #             self.fl(out, labels)*2
+            #             # + self.dice(out, labels)
+            #             # + self.ssim(out, labels)
+            #         + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])
+            #         + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])
+            #         )
+            #         * weight[i]
+            #         / 4 * 0.25
+            #     )
+            # else:
+            #     loss += (
+            #         (
+            #             self.fl(out, labels)
+            #             # + self.dice(out, labels)
+            #             # + self.ssim(out, labels)
+            #         + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+            #         + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+            #         + self.dice_single(out[:, 2:3, ...], labels[:, 2:3, ...])
+            #         + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
+            #         )
+            #         * weight[i]
+            #         / 4
+            #     )
+        
+        out = logits
+        
+        out = self.adt(out)
+        
+        if labels[:, 2:3, ...].max() == 0:
+            loss += (
+                (
+                    self.fl(out, labels)*2
+                    # + self.dice(out, labels)
+                    # + self.ssim(out, labels)
+                + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])
+                + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])
                 )
-            else:
-                loss += (
-                    (
-                        self.fl(out, labels)
-                        # + self.dice(out, labels)
-                        # + self.ssim(out, labels)
-                    + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
-                    + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
-                    + self.dice_single(out[:, 2:3, ...], labels[:, 2:3, ...])
-                    + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
-                    )
-                    * weight[i]
-                    / 4
+                / 4 * 0.25
+            )
+        else:
+            loss += (
+                (
+                    self.fl(out, labels)
+                    # + self.dice(out, labels)
+                    # + self.ssim(out, labels)
+                + self.dice_single(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+                + self.ssim_zl(out[:, 1:2, ...], labels[:, 1:2, ...])*0.5
+                + self.dice_single(out[:, 2:3, ...], labels[:, 2:3, ...])
+                + self.ssim_zl(out[:, 2:3, ...], labels[:, 2:3, ...])
                 )
+                / 4
+            )
         return loss
     
     

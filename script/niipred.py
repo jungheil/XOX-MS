@@ -25,7 +25,7 @@ ckpt_file = '/home/cat/lrx/git/xox_ms/weight/final.ckpt'
 
 
 class SingleCT():
-    def __init__(self,nii ,channels = 3,win_centre = 150,win_middle = 500):
+    def __init__(self,nii ,channels = 3,win_centre = 62,win_middle = 482):
         super().__init__()
         self.ct = nii
 
@@ -51,17 +51,34 @@ class SingleCT():
     def __len__(self):
         return self.len
 
+class OutAdt(nn.Cell):
+    def __init__(self):
+        super().__init__(auto_prefix=False)
+        self.lq = P.LessEqual()
+        self.ln = P.LogicalNot()
+        self.lgand = P.LogicalAnd()
+        
+    def construct(self, x):
+        x = P.sigmoid(x)
+        bg = 1-x[:,0:1,...]
+        sz = x[:,0:1,...] * (1-x[:,1:2,...])
+        zl = x[:,0:1,...] * x[:,1:2,...]
+        
+        out = P.concat((bg,sz,zl), axis=1)
+
+        return out
 class Pred:
     def __init__(self,ckpt,channels=3) -> None:
         self.num_parallel_workers=1
         self.channels = channels
-        self.net = get_model({'type': 'UNET3PLUS'})
+        self.net = get_model({'type': 'UNET3PLUS','n_classes':2})
         load_param_into_net(self.net, load_checkpoint(ckpt))
         
         self.model = ms.Model(
             network=self.net
         )
         self.argmax = P.Argmax(axis=1)
+        self.adt = OutAdt()
     
     def get(self, nii):
         dataset = SingleCT(nii,self.channels)
@@ -91,6 +108,7 @@ class Pred:
             seg = self.model.predict(ct)
             if isinstance(seg, tuple):
                 seg = seg[0]
+                seg = self.adt(seg)
             seg = self.argmax(seg).asnumpy().squeeze()
             out.append(seg)
         pad_front = [np.zeros(out[0].shape) for _ in range(self.channels // 2)]
@@ -98,7 +116,7 @@ class Pred:
         
         out = np.array(pad_front+out+pad_end, dtype=np.float32)
         out = ReSp(out,*area,restore=True,interpolation=cv2.INTER_NEAREST)
-        return out.astype(np.int8)
+        return out.astype(np.uint8)
         
         
 os.makedirs(output_dir, exist_ok=True)

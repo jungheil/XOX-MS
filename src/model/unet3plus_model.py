@@ -117,7 +117,7 @@ class UNet3Plus(nn.Cell):
     def __init__(
         self,
         in_channels=3,
-        n_classes=3,
+        n_classes=2,
         feature_scale=4,
         # is_deconv=True,
         is_batchnorm=True,
@@ -657,10 +657,10 @@ class UNet3Plus(nn.Cell):
 
         d1 = self.outconv1(hd1)  # d1->320*320*n_classes
         # XXX
-        d2 = self.resize_bilinear(self.outconv2(hd2), (512, 512))
-        d3 = self.resize_bilinear(self.outconv3(hd3), (512, 512))
-        d4 = self.resize_bilinear(self.outconv4(hd4), (512, 512))
-        return [d1, d2, d3, d4]
+        # d2 = self.resize_bilinear(self.outconv2(hd2), (512, 512))
+        # d3 = self.resize_bilinear(self.outconv3(hd3), (512, 512))
+        # d4 = self.resize_bilinear(self.outconv4(hd4), (512, 512))
+        return d1
 
 
 class BCEDiceLoss(nn.Cell):
